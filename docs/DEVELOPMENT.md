@@ -16,8 +16,14 @@ cp .env.example .env
 docker compose up -d          # Postgres on :5433, MinIO on :9000/:9001
 pnpm db:migrate
 pnpm db:seed                  # optional — demo@example.com / demo-password-please-change
-pnpm dev                      # starts apps/web on :3000
+pnpm dev                      # starts apps/web on :3000 and apps/realtime on :1234
 ```
+
+Real-time collaboration (apps/realtime) is optional in dev — if it's not running, or
+`REALTIME_URL` isn't set, pages just fall back to the plain autosave editor (see
+docs/ARCHITECTURE.md's "Real-time collaboration architecture"). `pnpm dev` starts both by
+default since both define a `dev` script Turborepo picks up; to run only the web app,
+`pnpm --filter web dev` instead.
 
 ## ⚠️ The NODE_ENV footgun
 
@@ -77,3 +83,14 @@ server interaction (uploads, page creation, link metadata), add it to
 `packages/editor/src/types.ts`'s service interfaces and wire the real implementation from
 `apps/web/src/components/page/` — the editor package itself never imports server actions
 directly.
+
+**Adding a custom node that must round-trip through realtime collaboration**: split it
+into `nodes/<name>-schema.ts` (the plain `Node.create()` — attrs, `parseHTML`,
+`renderHTML`, commands; no React import) and `nodes/<name>.tsx` (`"use client"`,
+`<Name>Schema.extend({ addNodeView: () => ReactNodeViewRenderer(<Name>View) })` plus the
+view component itself). Register the `.tsx` export in `kit.ts` as usual, and add the
+schema-only export to `packages/editor/src/schema.ts`'s `createSchemaExtensions()` too —
+apps/realtime imports only that (via `@notion-clone/editor/schema`, never the package's
+main entry point) to convert between Tiptap JSON and Yjs updates, and it has no
+`react`/`react-dom` dependency at all, so anything pulling those in would break its build.
+See `toggle-schema.ts` for the reference split.

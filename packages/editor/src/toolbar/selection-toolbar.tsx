@@ -44,7 +44,13 @@ export function SelectionToolbar({ editor }: { editor: Editor }) {
   return (
     <BubbleMenu
       editor={editor}
-      tippyOptions={{ duration: 100 }}
+      // Tippy.js (which BubbleMenu wraps) manages `aria-expanded` on its reference
+      // element by default — here that's the editor's own wrapper `<div>`, whose
+      // implicit ARIA role (generic) doesn't permit that attribute at all, an
+      // axe-core/WCAG "aria-allowed-attr" violation. `aria.expanded: false` tells Tippy
+      // not to touch the reference's ARIA attributes; the toolbar's own visibility is
+      // already conveyed by it simply not being in the DOM when hidden.
+      tippyOptions={{ duration: 100, aria: { expanded: false } }}
       shouldShow={({ state }) => !state.selection.empty}
     >
       <div className="flex items-center gap-0.5 rounded-md border border-border bg-surface-raised p-1 shadow-[var(--color-shadow)]">

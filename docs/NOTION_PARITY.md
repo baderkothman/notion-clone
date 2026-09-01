@@ -36,10 +36,10 @@ Status legend: ✅ implemented & e2e-verified · 🟡 backend/schema done, UI pe
 | Icon (emoji picker) | ✅ curated grid, not a full emoji library |
 | Cover image | 🟡 external URL only (paste a link); direct upload deferred — see `page-cover.tsx` comment |
 | Reorder / drag between parents | ✅ fractional-index sort keys, HTML5 DnD in the sidebar tree and in-editor drag handle |
-| Duplicate page (recursive) | ✅ |
+| Duplicate page (recursive) | ✅ integration-tested against real Postgres, including nested grandchildren (`hierarchy.int.test.ts`) |
 | Favorite / unfavorite | ✅ |
 | Move to Trash / restore / permanent delete | ✅ cascades to descendants |
-| Cycle prevention on move | ✅ unit-tested indirectly via `resolve-core`; move.ts's `wouldCreateCycle` |
+| Cycle prevention on move | ✅ integration-tested against real Postgres — `move.ts`'s `wouldCreateCycle` rejecting a move into a descendant/into itself, tree left unchanged (`hierarchy.int.test.ts`) |
 | Breadcrumbs | ✅ recursive CTE |
 | Sidebar sections (Favorites, Pages, Trash) | ✅ — **Recent** and a separate **Shared with me** section are not built (shares appear once navigated to directly; no dedicated "Shared" sidebar view yet) |
 
@@ -81,25 +81,26 @@ single largest structural gap vs. real Notion; see `docs/ARCHITECTURE.md`.
 
 | Feature | Status |
 |---|---|
-| Architecture designed (Hocuspocus, token-authenticated rooms) | ✅ documented in `docs/ARCHITECTURE.md` |
-| `apps/realtime` server implementation | ⬜ **not built in this pass** |
-| Presence / collaborator cursors | ⬜ |
-| Yjs wiring in the editor (`@tiptap/extension-collaboration`) | ⬜ dependency installed, not wired |
+| `apps/realtime` server (Hocuspocus, token-authenticated rooms) | ✅ own Node process; `onAuthenticate` requires a short-lived JWT minted only after a real edit-permission check |
+| Yjs wiring in the editor (`@tiptap/extension-collaboration`) | ✅ `packages/editor/src/use-collaboration.ts` + `kit.ts`; StarterKit's plain history is disabled in favor of Yjs-backed undo/redo when active |
+| Presence / collaborator cursors | ✅ live cursors + selections (CollaborationCursor extension) and a header avatar stack, both from Yjs awareness |
+| Falls back to plain autosave when unavailable | ✅ if apps/realtime isn't configured or reachable, the editor never mounts on an unsynced (and therefore misleadingly-empty) Y.Doc — it stays on the plain autosave path instead, bounded by a short timeout. See `docs/ARCHITECTURE.md`'s realtime section for the two real bugs this design fixes |
+| E2E-verified | ✅ `e2e/realtime-collaboration.spec.ts` — two accounts, live propagation, presence |
 
-This is the most significant deferred item from the Stop Conditions list — see the final
-engineering report for scope/time rationale. Concurrent editing today is safe (optimistic
-concurrency prevents silent overwrites) but not merged live; a second editor sees a
-"newer version available — reload" prompt instead of live cursors.
+Concurrent editing has two tiers now: while apps/realtime is reachable, edits merge live
+via Yjs (no conflict prompts, real cursors); if it's unreachable, editing falls back to
+the original optimistic-concurrency autosave path (safe, not live — a second editor sees
+a "newer version available — reload" prompt instead).
 
 ## Comments
 
 | Feature | Status |
 |---|---|
 | Page-level comments | ✅ |
-| Block-scoped comments (`blockId`) | 🟡 schema + API support a `blockId`; no UI affordance yet to attach a comment to a specific block (only page-level composer) |
+| Block-scoped comments (`blockId`) | ✅ comment icon in the block hover gutter; right-margin badge on blocks with an open thread, e2e-verified |
 | Threads/replies | ✅ reply inline, indented under the parent, e2e-verified (`e2e/comments.spec.ts`) |
 | Resolve/reopen | ✅ resolving hides the whole thread by default; "Show resolved" reveals it |
-| Mentions | 🟡 schema (`comment_mentions`) exists; no `@mention` autocomplete UI or extraction-on-write wired |
+| Mentions | ✅ `@name` autocomplete in the composer, explicit mentioned-user-ids recorded (not parsed from text), e2e-verified |
 | Author identity, timestamps | ✅ |
 | Permission-aware visibility | ✅ (comment requires `comment` role minimum) |
 
@@ -109,9 +110,9 @@ concurrency prevents silent overwrites) but not merged live; a second editor see
 |---|---|
 | Private / workspace-visible pages | ✅ |
 | Explicit per-user shares (view/comment/edit) | ✅ |
-| Inherited permissions from nearest shared ancestor | ✅ unit-tested (`resolve-core.test.ts`) |
+| Inherited permissions from nearest shared ancestor | ✅ unit-tested (`resolve-core.test.ts`, the pure decision logic) and integration-tested against the real recursive-CTE walk in Postgres (`resolve.int.test.ts`, including nearest-ancestor-wins-over-a-stronger-farther-one) |
 | Guests (page-scoped access without full membership) | ✅ sharing a page auto-creates a `guest` membership |
-| Public "share to web" link | ✅ token-based; **public viewer route (`/share/[token]`) is not built** — the toggle/token exist but there's no unauthenticated read-only render route yet |
+| Public "share to web" link | ✅ token-based; `/share/[token]` is a real unauthenticated read-only route, for both document pages and database-type pages (dedicated read-only table renderer, not the interactive `TableView` disabled) |
 | Full/admin transfer of page ownership | ⬜ |
 
 ## Search
@@ -134,11 +135,11 @@ concurrency prevents silent overwrites) but not merged live; a second editor see
 | Table view | ✅ inline-editable cells for every property type, add/rename/delete property, add row |
 | Board view | ✅ grouped by a Select/Status property, inline cell editing on cards, create option inline |
 | List view | ✅ minimal — titles only, opens the row's full page |
-| Calendar view | ⬜ not built — the view-type enum and schema support it, no renderer yet |
+| Calendar view | ✅ month grid, pick which Date property places rows, prev/next/today navigation, e2e-verified |
 | Property types: text/number/checkbox/url/date/select/multi_select/status | ✅ full read+edit UI, e2e-verified |
 | Property type: person | ✅ single-assignee picker from workspace members (Notion allows multiple; single is a scope cut) |
 | Property type: files | ✅ upload/attach reusing the editor's file service; minimal (no preview) |
-| Filters / sorts | ⬜ schema and contracts support them; no UI to build a filter or sort — views only group (Board) |
+| Filters / sorts | ✅ per-view filter (8 operators) and multi-column sort, client-side over loaded rows, e2e-verified; pure logic unit-tested (9 cases) |
 | Row = page (comments, sharing, sub-content) | ✅ opening a row's "external link" icon goes to its full page |
 
 E2E-verified end to end (`e2e/database.spec.ts`): create a database, add a Status
@@ -182,4 +183,4 @@ and confirm the row lands in the right column.
 | Keyboard-operable menus/dialogs | ✅ (Radix primitives) |
 | Focus-visible states | ✅ design-token-driven |
 | Reduced-motion support | ✅ `prefers-reduced-motion` media query in `globals.css` |
-| Full WCAG 2.2 AA audit | 🟡 built with accessible primitives throughout; no dedicated automated audit (axe/Lighthouse) run in this pass |
+| Full WCAG 2.2 AA audit | 🟡 built with accessible primitives throughout; automated axe-core sweep (`e2e/accessibility.spec.ts`) covers the auth forms, workspace shell, page editor, a database table, and settings — zero violations, and it caught/fixed a real bug (see `docs/TESTING.md`). This is coverage of what axe can detect automatically, not a substitute for a full manual WCAG 2.2 AA audit (screen-reader walkthroughs, keyboard-only flows end to end, etc.), which hasn't been done |

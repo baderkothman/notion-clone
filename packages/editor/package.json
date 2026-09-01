@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -32,6 +33,7 @@
     "@tiptap/suggestion": "^2.11.2",
     "@tiptap/extension-collaboration": "^2.11.2",
     "@tiptap/extension-collaboration-cursor": "^2.11.2",
+    "@hocuspocus/provider": "^2.15.2",
     "yjs": "^13.6.21",
     "y-prosemirror": "^1.2.15",
     "tippy.js": "^6.3.7",

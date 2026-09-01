@@ -12,6 +12,7 @@ import { listProperties } from "@/server/databases/properties";
 import { listRows } from "@/server/databases/rows";
 import { listViews } from "@/server/databases/views";
 import { listWorkspaceMembers } from "@/server/workspaces/queries";
+import { getUserProfile } from "@/server/users/current-user";
 import { DatabasePageHeader } from "@/components/database/database-page-header";
 import { DatabaseView } from "@/components/database/database-view";
 import type { DatabaseProperty, DatabaseViewRecord } from "@/components/database/types";
@@ -84,6 +85,8 @@ export default async function PageRoute({
     );
   }
 
+  const currentUser = await getUserProfile(userId);
+
   return (
     <PageView
       workspaceId={page.workspaceId}
@@ -93,6 +96,8 @@ export default async function PageRoute({
       documentVersion={document?.version ?? 1}
       breadcrumbTrail={breadcrumbTrail}
       editable={editable}
+      currentUser={{ id: userId, name: currentUser?.name ?? currentUser?.email ?? "Anonymous" }}
+      realtimeWsUrl={process.env.REALTIME_URL ?? null}
     />
   );
 }

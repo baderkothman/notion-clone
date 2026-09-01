@@ -82,6 +82,26 @@ reaching for Node.js middleware.
   one source of truth instead of two.
 - Presence (who's viewing/editing) rides on Yjs awareness, which Hocuspocus provides
   out of the box; the editor renders collaborator cursors/avatars from awareness state.
+- A fresh Y.Doc starts empty, and is indistinguishable from "this page has no content"
+  until it's actually synced with apps/realtime. `page-view.tsx` never mounts the editor
+  onto an unsynced Y.Doc — it renders in plain mode (reading `documents.content` exactly
+  as if realtime didn't exist, autosave-owned) until `useCollaboration`'s `hasSyncedOnce`
+  is true, then switches. If sync never completes within a few seconds (apps/realtime
+  down, network trouble, `REALTIME_URL` misconfigured), it gives up and stays in plain
+  mode rather than showing a permanent loading state or — the two failure modes an
+  earlier version of this actually hit during development — silently editing an empty
+  document that would overwrite real content on save, or suppressing autosave forever
+  because a `"connecting"` status was mistaken for "safe to skip the fallback."
+  `apps/web/src/server/realtime/mint-token.ts` and `packages/editor/src/use-collaboration.ts`
+  are the two places this contract lives; see their doc comments before changing either.
+- `packages/editor/src/schema.ts` exports the document schema with zero
+  `react`/`react-dom` in its import graph — every custom node is split into a plain
+  `*-schema.ts` half (attrs/parseHTML/renderHTML/commands) and a `.tsx` half that
+  `.extend()`s it with the React node view (see `nodes/toggle-schema.ts` +
+  `nodes/toggle.tsx`). apps/realtime imports only the schema half (via
+  `@notion-clone/editor/schema`) to convert between Tiptap JSON and Yjs updates —
+  reusing the same node/mark definitions the browser editor uses, so a custom block's
+  attrs can never silently drift between the two processes.
 
 ## Search architecture
 

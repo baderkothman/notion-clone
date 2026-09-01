@@ -82,20 +82,130 @@ Status as of this session. Check `docs/NOTION_PARITY.md` for full detail per fea
       default, delete a reply without affecting its parent. E2E-verified
       (`e2e/comments.spec.ts`).
 
+## Done this session: database Calendar view, filters/sorts, and public database sharing
+
+- [x] Calendar view (month grid, pick a Date property, prev/next/today) and per-view
+      Filter (8 operators)/Sort (multi-column, empties-last) controls, applied
+      client-side over already-loaded rows. Pure logic unit-tested (9 cases:
+      `filter-sort-core.test.ts`); e2e-verified (`e2e/database-calendar-and-filters.spec.ts`).
+- [x] Public sharing of database-type pages (`/share/[token]` now handles
+      `page.type === "database"`) — a dedicated read-only table renderer
+      (`public-database-view.tsx`), not the interactive `TableView` merely disabled: its
+      per-cell inputs don't gate on `editable`, so reusing it would show controls that
+      look interactive but silently no-op for a sessionless visitor — exactly the "fake
+      button" this project's quality bar rules out. E2E-verified
+      (`e2e/public-database-share.spec.ts`).
+
 ## Not done — largest remaining gaps
 
-- [ ] **apps/realtime**: Hocuspocus server + editor Yjs wiring + presence. Architecture
-      documented in `docs/ARCHITECTURE.md`; dependencies installed
-      (`@tiptap/extension-collaboration`, `y-prosemirror`, `yjs`); no implementation.
-- [ ] Database Calendar view + filter/sort UI (Table/Board/List are done — see above).
-- [ ] Public sharing of database-type pages.
-- [ ] Block-scoped comment anchoring UI (schema supports `blockId`; composer is
-      page-level only), @mention autocomplete.
-- [ ] Transactional email delivery (invitations, password reset currently log to server
-      console in dev).
-- [ ] Integration test suite against real Postgres (permission enforcement, hierarchy
-      operations) beyond what e2e covers indirectly.
-- [ ] Automated accessibility audit (axe/Lighthouse).
+Nothing left in this list — the last remaining item (real-time collaboration, below) is
+now done. See `docs/NOTION_PARITY.md` for the handful of smaller partial/deferred items
+(cover-image direct upload, a dedicated "Shared with me" sidebar section, full manual
+WCAG 2.2 AA audit beyond what axe catches automatically) that were never on this list to
+begin with because they were scoped as partial from the start.
+
+## Done this session: real-time collaboration (apps/realtime)
+
+- [x] `apps/realtime`: a Hocuspocus (Yjs) WebSocket server as its own Node process.
+      `onAuthenticate` verifies a short-lived JWT minted by `apps/web` only after a real
+      `assertPagePermission(userId, pageId, "edit")` check (`server/realtime/mint-token.ts`)
+      — joining a room by URL/page-id alone is refused. `onLoadDocument`/`onStoreDocument`
+      convert between Yjs and the same `documents.content` Tiptap-JSON shape the plain
+      autosave path uses via `@hocuspocus/transformer`, so both converge on one source of
+      truth; `documents.version` is still bumped on every realtime write so a stale
+      autosave from a client mid-reconnect correctly conflicts instead of clobbering.
+- [x] Editor wiring: `packages/editor/src/use-collaboration.ts` owns the Y.Doc +
+      HocuspocusProvider; `kit.ts` adds Tiptap's Collaboration/CollaborationCursor
+      extensions (and disables StarterKit's plain history, since Collaboration brings its
+      own Yjs-backed undo/redo) only when a collaboration config is passed in. Live
+      cursors, selections, and a presence avatar stack in the page header
+      (`collaboration-presence.tsx`) all come from Yjs awareness — no extra
+      server-tracked "who's viewing" state.
+- [x] **Two real bugs found and fixed while building this** (see docs/ARCHITECTURE.md's
+      realtime section for the full writeup): (1) a fresh Y.Doc starts empty and is
+      indistinguishable from "no content" until actually synced — mounting the editor on
+      one before sync completed meant editing (and saving) an empty document, silently
+      overwriting real content. Fixed by staying in plain mode (autosave-owned, reading
+      `documents.content` normally) until `hasSyncedOnce` is true, with a bounded timeout
+      that falls back to plain mode if sync never completes. (2) autosave was originally
+      suppressed whenever collaboration was merely "enabled", including a `"connecting"`
+      state that can persist forever if apps/realtime is unreachable — meaning typed
+      content would never be saved anywhere. Fixed by only suppressing autosave while
+      actually, provenly `"connected"` right now. Both fixes were verified manually by
+      killing the realtime server mid-session and confirming autosave takes over and
+      content survives a reload (not a permanent CI test — see docs/TESTING.md for why).
+- [x] Custom Tiptap nodes (toggle, callout, child-page, image, file, bookmark) split into
+      a plain `*-schema.ts` half (no React) and a `.tsx` half extending it with the node
+      view, so apps/realtime can import the schema (`@notion-clone/editor/schema`) to
+      losslessly convert custom blocks between Tiptap JSON and Yjs without pulling
+      `react`/`react-dom` into a process that never renders anything.
+- [x] E2E-verified (`e2e/realtime-collaboration.spec.ts`): two independent accounts,
+      shared for edit access, both connect to the same page's room; one types, the other
+      sees it live; presence shows each other's avatar. Wired into CI: the `e2e` job now
+      also starts apps/realtime (`pnpm --filter realtime start`) alongside the web app.
+
+## Done this session: automated accessibility audit
+
+- [x] `e2e/accessibility.spec.ts` runs an axe-core sweep (WCAG 2.0/2.1 A + AA rules,
+      `color-contrast` excluded — see the spec's comment for why) against the auth forms,
+      workspace shell, page editor, a database table, and workspace settings; asserts
+      zero violations on each. Runs as part of the existing Playwright suite, so it's
+      already covered by CI's "Run e2e tests" step with no separate wiring needed.
+- [x] **Found and fixed a real bug** while building this: Tiptap's `BubbleMenu`
+      (selection toolbar) and the slash-menu both render via Tippy.js popups, which by
+      default write `aria-expanded` onto their *reference* element regardless of whether
+      its ARIA role permits that attribute — an `aria-allowed-attr` (critical) violation.
+      For the selection toolbar the reference was the editor's own wrapper `<div>`; for
+      the slash menu it was `document.body` itself, so every page with the editor mounted
+      carried this on the single most global element in the DOM. Fixed in both places
+      with Tippy's `aria: { expanded: false }` option (`selection-toolbar.tsx`,
+      `slash-command.ts`) — the popups' own presence in the DOM already conveys
+      open/closed state, so nothing else needed to change.
+
+## Done this session: integration test suite against real Postgres
+
+- [x] A separate Vitest config/suite (`vitest.integration.config.ts`,
+      `apps/web/src/**/*.int.test.ts`) that imports the real domain modules (not just
+      pure logic) against a real local Postgres, using a `server-only`-package shim
+      (`test/server-only-shim.ts`) so those modules load under plain Node instead of only
+      inside a Next.js webpack build. 10 tests: `permissions/resolve.int.test.ts` (6 —
+      the recursive-CTE permission walk: creator-owns, member-denied, outsider-denied,
+      explicit-share inherited by a child page, workspace-visibility excludes guests,
+      nearest-ancestor-share wins) and `pages/hierarchy.int.test.ts` (4 — `move.ts`'s
+      cycle prevention into a descendant/into itself with the tree left unchanged, a
+      legitimate move, and `duplicate.ts`'s recursive subtree clone with nested
+      grandchildren). Wired into CI as its own step in the `e2e` job, after migrations
+      and before the build, so a broken recursive query fails CI even without an e2e
+      spec exercising that exact path. `pnpm -r test` (unit) stays DB-free via an
+      `exclude` on `*.int.test.ts`; run integration tests with `pnpm test:integration`.
+
+## Done this session: block-scoped comments, @mentions, and a real drag-handle bug fix
+
+- [x] Comment icon in the block hover gutter (`drag-handle.tsx`) opens the panel
+      pre-targeted at that block; blocks with an open thread show a persistent
+      right-margin badge (`comment-indicators.tsx`). @mention autocomplete in the
+      composer (`mention-composer.tsx`) records explicit `mentionedUserIds` server-side
+      rather than parsing "@Name" text. E2E-verified
+      (`e2e/block-comments-and-mentions.spec.ts`).
+- [x] **Found and fixed a real bug** while building this: the drag handle's gutter
+      (insert-below, drag-to-move, and now comment) was silently non-functional under
+      real mouse interaction — `element.click()` worked, but an actual pointer move
+      followed by click did not. Two causes: (1) the hover-tracking listeners were
+      attached to Tiptap's internal `EditorContent` wrapper div, one level too deep
+      relative to where the gutter actually renders; (2) the `mousemove` handler cleared
+      hover state the instant the pointer reached the gutter itself (not a
+      `[data-block-id]` descendant), unmounting the gutter before a click could land.
+      Fixed with an explicit container ref and by only clearing hover on true
+      `mouseleave`. This had been broken since the editor was first built — no prior
+      e2e test exercised a real hover+click on these buttons.
+
+## Done this session: transactional email
+
+- [x] Real delivery via Resend (`server/email/send-email.ts` + `templates.ts`), used by
+      workspace invitations and password reset. No `RESEND_API_KEY` configured → falls
+      back to the same console-log behavior as before (documented in `.env.example`),
+      so local dev works either way. Unit-tested templates (2 tests); e2e suite already
+      exercises the invite path end to end.
 
 ## Notes for whoever continues this
 

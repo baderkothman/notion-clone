@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForEditorSynced } from "./helpers";
 
 /**
  * Security-critical negative case from the top-level spec: "Unauthorized user attempts
@@ -27,7 +28,7 @@ test("a user cannot open another user's private page by guessing its URL", async
   await pageA.getByLabel("Page title").fill("User A's Private Page");
   await pageA.locator(".prose-editor").click();
   await pageA.keyboard.type("Secret content only User A should see.");
-  await expect(pageA.getByText("Saved")).toBeVisible({ timeout: 10_000 });
+  await waitForEditorSynced(pageA);
 
   await contextA.close();
 

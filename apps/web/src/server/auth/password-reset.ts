@@ -9,6 +9,8 @@ import {
 import { hashPassword } from "@notion-clone/auth";
 import { checkRateLimit, RateLimitedError, ValidationError, newToken } from "@notion-clone/shared";
 import { createHash } from "node:crypto";
+import { sendEmail } from "../email/send-email";
+import { passwordResetEmail } from "../email/templates";
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -37,10 +39,15 @@ export async function requestPasswordReset(raw: RequestPasswordResetInput): Prom
     expiresAt: new Date(Date.now() + RESET_TTL_MS),
   });
 
-  // Phase 1: no transactional email provider is wired up yet (out of scope for the
-  // clone foundation). Logging server-side lets local development exercise the full
-  // flow; wiring a real provider is a drop-in replacement for this one call.
-  console.info(`[password-reset] token for ${email}: ${token}`);
+  const resetUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
+  const { subject, html, text } = passwordResetEmail({ resetUrl });
+  // Caught, not awaited-and-thrown: this function's contract is "always succeeds
+  // whether or not the account exists" (see the doc comment above) — letting a
+  // transient email-provider failure surface only for real accounts would itself be an
+  // enumeration side channel.
+  await sendEmail({ to: email, subject, html, text }).catch((error) => {
+    console.error("[password-reset] Failed to send reset email:", error);
+  });
 }
 
 export async function resetPassword(raw: ResetPasswordInput): Promise<void> {

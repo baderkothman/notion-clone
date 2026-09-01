@@ -26,7 +26,12 @@ export interface DatabaseViewRecord {
   id: string;
   name: string;
   type: ViewType;
-  config: { filters?: unknown[]; sorts?: unknown[]; groupByPropertyId?: string | null };
+  config: {
+    filters?: unknown[];
+    sorts?: unknown[];
+    groupByPropertyId?: string | null;
+    datePropertyId?: string | null;
+  };
   position: number;
 }
 

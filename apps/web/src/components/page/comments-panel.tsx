@@ -1,17 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { toast } from "sonner";
-import { Check, CornerDownRight, MessageSquare, RotateCcw, X } from "lucide-react";
-import { Avatar, Button, cn } from "@notion-clone/ui";
-import {
-  listCommentsAction,
-  createCommentAction,
-  resolveCommentAction,
-  deleteCommentAction,
-} from "@/app/(app)/actions/comments";
+import { Check, MessageSquare, RotateCcw, X } from "lucide-react";
+import { Avatar, cn } from "@notion-clone/ui";
+import { MentionComposer, type MemberOption } from "./mention-composer";
 
-interface Comment {
+export interface Comment {
   id: string;
   blockId: string | null;
   parentCommentId: string | null;
@@ -59,7 +53,7 @@ function CommentRow({
             onClick={() => onReply(comment.id)}
             className="flex items-center gap-1 text-xs text-text-faint hover:text-text"
           >
-            <CornerDownRight className="h-3 w-3" /> Reply
+            Reply
           </button>
         ) : null}
         <button
@@ -73,21 +67,27 @@ function CommentRow({
   );
 }
 
-export function CommentsPanel({ pageId, open }: { pageId: string; open: boolean }) {
-  const [comments, setComments] = React.useState<Comment[]>([]);
-  const [draft, setDraft] = React.useState("");
+export function CommentsPanel({
+  open,
+  comments,
+  members,
+  targetBlockId,
+  onClearTarget,
+  onCreate,
+  onResolve,
+  onDelete,
+}: {
+  open: boolean;
+  comments: Comment[];
+  members: MemberOption[];
+  targetBlockId: string | null;
+  onClearTarget: () => void;
+  onCreate: (body: string, mentionedUserIds: string[], blockId: string | null, parentCommentId: string | null) => void;
+  onResolve: (id: string, resolved: boolean) => void;
+  onDelete: (id: string) => void;
+}) {
   const [showResolved, setShowResolved] = React.useState(false);
   const [replyingTo, setReplyingTo] = React.useState<string | null>(null);
-  const [replyDraft, setReplyDraft] = React.useState("");
-
-  const refresh = React.useCallback(async () => {
-    const result = await listCommentsAction(pageId);
-    if (result.ok) setComments(result.value);
-  }, [pageId]);
-
-  React.useEffect(() => {
-    if (open) void refresh();
-  }, [open, refresh]);
 
   if (!open) return null;
 
@@ -98,37 +98,6 @@ export function CommentsPanel({ pageId, open }: { pageId: string; open: boolean 
     const list = repliesByParent.get(comment.parentCommentId) ?? [];
     list.push(comment);
     repliesByParent.set(comment.parentCommentId, list);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!draft.trim()) return;
-    const result = await createCommentAction({ pageId, body: draft.trim() });
-    if (!result.ok) return toast.error(result.error);
-    setDraft("");
-    void refresh();
-  }
-
-  async function handleReplySubmit(e: React.FormEvent, parentCommentId: string) {
-    e.preventDefault();
-    if (!replyDraft.trim()) return;
-    const result = await createCommentAction({ pageId, body: replyDraft.trim(), parentCommentId });
-    if (!result.ok) return toast.error(result.error);
-    setReplyDraft("");
-    setReplyingTo(null);
-    void refresh();
-  }
-
-  async function handleResolve(commentId: string, resolved: boolean) {
-    const result = await resolveCommentAction({ commentId, resolved });
-    if (!result.ok) return toast.error(result.error);
-    void refresh();
-  }
-
-  async function handleDelete(commentId: string) {
-    const result = await deleteCommentAction({ commentId });
-    if (!result.ok) return toast.error(result.error);
-    void refresh();
   }
 
   return (
@@ -151,27 +120,29 @@ export function CommentsPanel({ pageId, open }: { pageId: string; open: boolean 
             const replies = repliesByParent.get(comment.id) ?? [];
             return (
               <div key={comment.id} className="rounded-md border border-border p-2.5">
-                <CommentRow comment={comment} isReply={false} onResolve={handleResolve} onDelete={handleDelete} onReply={setReplyingTo} />
+                {comment.blockId ? (
+                  <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-accent">On a block</p>
+                ) : null}
+                <CommentRow comment={comment} isReply={false} onResolve={onResolve} onDelete={onDelete} onReply={setReplyingTo} />
                 {replies.length > 0 ? (
                   <div className="mt-3 space-y-3">
                     {replies.map((reply) => (
-                      <CommentRow key={reply.id} comment={reply} isReply onDelete={handleDelete} />
+                      <CommentRow key={reply.id} comment={reply} isReply onDelete={onDelete} />
                     ))}
                   </div>
                 ) : null}
                 {replyingTo === comment.id ? (
-                  <form onSubmit={(e) => handleReplySubmit(e, comment.id)} className="mt-3 ml-6 flex items-center gap-1.5">
-                    <input
-                      value={replyDraft}
-                      onChange={(e) => setReplyDraft(e.target.value)}
+                  <div className="mt-3 ml-6">
+                    <MentionComposer
+                      members={members}
                       placeholder="Reply…"
                       autoFocus
-                      className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                      onSubmit={(body, mentionedUserIds) => {
+                        onCreate(body, mentionedUserIds, comment.blockId, comment.id);
+                        setReplyingTo(null);
+                      }}
                     />
-                    <Button type="submit" size="sm">
-                      Send
-                    </Button>
-                  </form>
+                  </div>
                 ) : null}
               </div>
             );
@@ -179,17 +150,21 @@ export function CommentsPanel({ pageId, open }: { pageId: string; open: boolean 
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border p-2.5">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+      <div className="border-t border-border p-2.5">
+        {targetBlockId ? (
+          <div className="mb-1.5 flex items-center justify-between rounded-md bg-selected px-2 py-1 text-xs text-text">
+            <span>Commenting on selected block</span>
+            <button onClick={onClearTarget} aria-label="Comment on the page instead" className="text-text-faint hover:text-text">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : null}
+        <MentionComposer
+          members={members}
           placeholder="Add a comment…"
-          className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          onSubmit={(body, mentionedUserIds) => onCreate(body, mentionedUserIds, targetBlockId, null)}
         />
-        <Button type="submit" size="sm">
-          Send
-        </Button>
-      </form>
+      </div>
     </aside>
   );
 }

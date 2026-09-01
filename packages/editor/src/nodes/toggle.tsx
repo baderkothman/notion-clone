@@ -1,61 +1,16 @@
 "use client";
 
-import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import { ChevronRight } from "lucide-react";
+import { ToggleSchema } from "./toggle-schema";
 
-export interface ToggleOptions {
-  HTMLAttributes: Record<string, unknown>;
-}
-
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    toggle: {
-      setToggle: () => ReturnType;
-    };
-  }
-}
+export { type ToggleOptions } from "./toggle-schema";
 
 /** A collapsible block — Notion's "toggle list". Content stays in the document while
  * collapsed (so it's still saved/searched/exported); it's just visually hidden, which
- * keeps the schema simple compared to conditionally unmounting child nodes. */
-export const Toggle = Node.create<ToggleOptions>({
-  name: "toggle",
-  group: "block",
-  content: "block+",
-  defining: true,
-
-  addOptions() {
-    return { HTMLAttributes: {} };
-  },
-
-  addAttributes() {
-    return {
-      open: {
-        default: true,
-        parseHTML: (el) => el.getAttribute("data-open") !== "false",
-        renderHTML: (attrs) => ({ "data-open": String(attrs.open) }),
-      },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: "div[data-type='toggle']" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["div", mergeAttributes(HTMLAttributes, { "data-type": "toggle" }), 0];
-  },
-
-  addCommands() {
-    return {
-      setToggle:
-        () =>
-        ({ commands }) =>
-          commands.wrapIn(this.name),
-    };
-  },
-
+ * keeps the schema simple compared to conditionally unmounting child nodes. Extends
+ * `ToggleSchema` (see toggle-schema.ts) with the browser-only React node view. */
+export const Toggle = ToggleSchema.extend({
   addNodeView() {
     return ReactNodeViewRenderer(ToggleView);
   },

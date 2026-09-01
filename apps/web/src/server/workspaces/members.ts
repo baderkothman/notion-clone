@@ -21,6 +21,8 @@ import {
 import { ConflictError, ForbiddenError, ValidationError, newToken } from "@notion-clone/shared";
 import { createHash } from "node:crypto";
 import { assertWorkspaceCapability } from "../permissions/assert";
+import { sendEmail } from "../email/send-email";
+import { workspaceInviteEmail } from "../email/templates";
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -76,10 +78,18 @@ export async function inviteMember(actorUserId: string, raw: InviteMemberInput) 
     .returning();
   if (!invitation) throw new Error("Failed to create invitation.");
 
-  // Phase 1: no transactional email provider is wired up yet (see docs/PRODUCT_SPEC.md
-  // Open Questions) — same pattern as password-reset. Logging server-side lets local
-  // development exercise the full invite → accept flow.
-  console.info(`[invite] token for ${input.email} to join workspace ${input.workspaceId}: ${token}`);
+  const [workspace] = await db
+    .select({ name: workspaces.name })
+    .from(workspaces)
+    .where(eq(workspaces.id, input.workspaceId))
+    .limit(1);
+
+  const inviteUrl = `${process.env.APP_URL ?? "http://localhost:3000"}/invite/${token}`;
+  const { subject, html, text } = workspaceInviteEmail({ workspaceName: workspace?.name ?? "a workspace", inviteUrl });
+  // A bounced/failed send doesn't roll back the invitation record — see send-email.ts.
+  await sendEmail({ to: input.email, subject, html, text }).catch((error) => {
+    console.error("[invite] Failed to send invitation email:", error);
+  });
 
   return { invitation, token };
 }

@@ -1,67 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { Link2, Loader2 } from "lucide-react";
-import type { EditorEmbedService } from "../types";
+import { BookmarkSchema, type BookmarkAttrs, type BookmarkOptions } from "./bookmark-schema";
 
-export interface BookmarkAttrs {
-  url: string;
-  title: string;
-  description: string;
-  faviconUrl: string | null;
-}
+export { type BookmarkAttrs, type BookmarkOptions } from "./bookmark-schema";
 
-export interface BookmarkOptions {
-  HTMLAttributes: Record<string, unknown>;
-  embedService: EditorEmbedService | null;
-}
-
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    bookmark: {
-      insertBookmarkPlaceholder: () => ReturnType;
-    };
-  }
-}
-
-export const Bookmark = Node.create<BookmarkOptions>({
-  name: "bookmark",
-  group: "block",
-  atom: true,
-  selectable: true,
-
-  addOptions() {
-    return { HTMLAttributes: {}, embedService: null };
-  },
-
-  addAttributes() {
-    return {
-      url: { default: "" },
-      title: { default: "" },
-      description: { default: "" },
-      faviconUrl: { default: null },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: "div[data-type='bookmark']" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["div", mergeAttributes(HTMLAttributes, { "data-type": "bookmark" })];
-  },
-
-  addCommands() {
-    return {
-      insertBookmarkPlaceholder:
-        () =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { url: "", title: "", description: "", faviconUrl: null } }),
-    };
-  },
-
+export const Bookmark = BookmarkSchema.extend({
   addNodeView() {
     return ReactNodeViewRenderer(BookmarkView);
   },

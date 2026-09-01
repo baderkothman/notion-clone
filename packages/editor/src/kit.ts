@@ -11,7 +11,10 @@ import Table from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCursor from "@tiptap/extension-collaboration-cursor";
 import type { AnyExtension } from "@tiptap/core";
+import type * as Y from "yjs";
 
 import { BlockId } from "./extensions/block-id";
 import { Toggle } from "./nodes/toggle";
@@ -23,21 +26,36 @@ import { Bookmark } from "./nodes/bookmark";
 import { SlashCommand } from "./slash-menu/slash-command";
 import type { EditorFileService, EditorEmbedService } from "./types";
 
+export interface CollaborationConfig {
+  /** The Yjs doc synced with apps/realtime — its "default" fragment is the single
+   * source of truth for content in this mode, so `content` is not also passed to
+   * `useEditor` (see block-editor.tsx). */
+  document: Y.Doc;
+  /** Present once the Hocuspocus connection is established; omitted (no cursor
+   * extension) while still connecting so there's nothing to render cursors on yet. */
+  provider?: import("@hocuspocus/provider").HocuspocusProvider;
+  user: { name: string; color: string };
+}
+
 export interface CreateExtensionsOptions {
   placeholder?: string;
   onNavigateToPage: (pageId: string) => void;
   onCreateChildPage?: () => Promise<{ id: string; title: string; icon: string | null } | null>;
   fileService: EditorFileService | null;
   embedService: EditorEmbedService | null;
+  /** When set, the editor syncs its content through Yjs instead of the plain
+   * document/history model — see use-collaboration.ts. */
+  collaboration?: CollaborationConfig;
 }
 
 export function createExtensions(options: CreateExtensionsOptions): AnyExtension[] {
   return [
     StarterKit.configure({
       heading: { levels: [1, 2, 3] },
-      // Collaboration extensions bring their own history; disabled here and enabled by
-      // the caller only when a Yjs doc is attached (see components/page/editor.tsx).
-      history: {},
+      // The Collaboration extension brings its own Yjs-backed undo/redo (yUndoPlugin);
+      // running StarterKit's plain history alongside it would double-track changes and
+      // desync the two undo stacks, so it's disabled exactly when collaboration is on.
+      history: options.collaboration ? false : {},
     }),
     Underline,
     Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: "noopener noreferrer nofollow" } }),
@@ -65,5 +83,18 @@ export function createExtensions(options: CreateExtensionsOptions): AnyExtension
     FileBlock.configure({ fileService: options.fileService }),
     Bookmark.configure({ embedService: options.embedService }),
     SlashCommand.configure({ onCreateChildPage: options.onCreateChildPage }),
+    ...(options.collaboration
+      ? [
+          Collaboration.configure({ document: options.collaboration.document }),
+          ...(options.collaboration.provider
+            ? [
+                CollaborationCursor.configure({
+                  provider: options.collaboration.provider,
+                  user: options.collaboration.user,
+                }),
+              ]
+            : []),
+        ]
+      : []),
   ];
 }

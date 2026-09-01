@@ -66,10 +66,13 @@ export const filterConditionSchema = z.object({
   value: z.unknown().optional(),
 });
 
+export type FilterCondition = z.infer<typeof filterConditionSchema>;
+
 export const sortConditionSchema = z.object({
   propertyId: z.string().uuid(),
   direction: z.enum(["asc", "desc"]),
 });
+export type SortCondition = z.infer<typeof sortConditionSchema>;
 
 export const viewConfigSchema = z.object({
   filters: z.array(filterConditionSchema).default([]),

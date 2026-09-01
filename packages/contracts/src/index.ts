@@ -8,3 +8,4 @@ export * from "./databases";
 export * from "./files";
 export * from "./search";
 export * from "./embeds";
+export * from "./realtime";

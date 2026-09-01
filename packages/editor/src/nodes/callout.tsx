@@ -1,56 +1,13 @@
 "use client";
 
-import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent, type NodeViewProps } from "@tiptap/react";
+import { CalloutSchema } from "./callout-schema";
 
-export interface CalloutOptions {
-  HTMLAttributes: Record<string, unknown>;
-}
-
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    callout: {
-      setCallout: (attrs?: { emoji?: string; color?: string }) => ReturnType;
-    };
-  }
-}
+export { type CalloutOptions } from "./callout-schema";
 
 const COLORS = ["gray", "blue", "green", "yellow", "red", "purple"] as const;
 
-export const Callout = Node.create<CalloutOptions>({
-  name: "callout",
-  group: "block",
-  content: "block+",
-  defining: true,
-
-  addOptions() {
-    return { HTMLAttributes: {} };
-  },
-
-  addAttributes() {
-    return {
-      emoji: { default: "💡" },
-      color: { default: "gray" },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: "div[data-type='callout']" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["div", mergeAttributes(HTMLAttributes, { "data-type": "callout" }), 0];
-  },
-
-  addCommands() {
-    return {
-      setCallout:
-        (attrs) =>
-        ({ commands }) =>
-          commands.wrapIn(this.name, attrs),
-    };
-  },
-
+export const Callout = CalloutSchema.extend({
   addNodeView() {
     return ReactNodeViewRenderer(CalloutView);
   },

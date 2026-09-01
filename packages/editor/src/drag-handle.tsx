@@ -2,35 +2,48 @@
 
 import * as React from "react";
 import type { Editor } from "@tiptap/react";
-import { GripVertical, Plus } from "lucide-react";
+import { GripVertical, MessageSquarePlus, Plus } from "lucide-react";
 
 const DRAG_MIME = "application/x-notion-clone-block";
 
 /**
- * The left-side gutter (⠿ drag handle, + insert-below) that follows the hovered
- * top-level block — Notion's signature block-level affordance. Positioning is done by
- * reading the DOM rect of the hovered `[data-block-id]` element rather than duplicating
- * ProseMirror's layout math. Reordering moves the whole top-level block (this editor's
- * blocks are Notion's "top-level" tree level; arbitrary recursive nesting of any block
- * under any other is intentionally out of scope for phase 1 — see docs/NOTION_PARITY.md).
+ * The left-side gutter (⠿ drag handle, + insert-below, comment) that follows the
+ * hovered top-level block — Notion's signature block-level affordance. Positioning is
+ * done by reading the DOM rect of the hovered `[data-block-id]` element rather than
+ * duplicating ProseMirror's layout math. Reordering moves the whole top-level block
+ * (this editor's blocks are Notion's "top-level" tree level; arbitrary recursive
+ * nesting of any block under any other is intentionally out of scope for phase 1 — see
+ * docs/NOTION_PARITY.md). `onCommentBlock` is optional so the handle still works for
+ * hosts that haven't wired up commenting (e.g. none today, but keeps the component
+ * usable standalone).
  */
-export function DragHandle({ editor }: { editor: Editor }) {
+export function DragHandle({
+  editor,
+  container,
+  onCommentBlock,
+}: {
+  editor: Editor;
+  /** The actual outer wrapper that contains both the editor content and this gutter —
+   * see the comment in block-editor.tsx for why this can't be derived from
+   * `editor.view.dom.parentElement`. */
+  container: React.RefObject<HTMLDivElement | null>;
+  onCommentBlock?: (blockId: string) => void;
+}) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const [rect, setRect] = React.useState<{ top: number; left: number; height: number } | null>(null);
-  const containerRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
-    const dom = editor.view.dom as HTMLElement;
-    containerRef.current = dom;
-    const parent = dom.parentElement;
+    const parent = container.current;
     if (!parent) return;
 
     function onMouseMove(e: MouseEvent) {
       const target = (e.target as HTMLElement).closest("[data-block-id]") as HTMLElement | null;
-      if (!target) {
-        setHoveredId(null);
-        return;
-      }
+      // Not over a block — this includes the gutter itself (a sibling of the blocks,
+      // not a descendant of any `[data-block-id]` element), so this must NOT clear the
+      // current hover: doing so unmounts the gutter the instant the pointer reaches it,
+      // before a click can land. Hover only clears via `mouseleave` on the container
+      // (truly leaving), not merely "not currently over a block".
+      if (!target) return;
       const containerBox = parent!.getBoundingClientRect();
       const box = target.getBoundingClientRect();
       setHoveredId(target.getAttribute("data-block-id"));
@@ -73,7 +86,8 @@ export function DragHandle({ editor }: { editor: Editor }) {
   }
 
   React.useEffect(() => {
-    const dom = editor.view.dom as HTMLElement;
+    const dom = container.current;
+    if (!dom) return;
     function onDragOver(e: DragEvent) {
       if (!e.dataTransfer?.types.includes(DRAG_MIME)) return;
       e.preventDefault();
@@ -105,11 +119,11 @@ export function DragHandle({ editor }: { editor: Editor }) {
       editor.view.dispatch(tr);
     }
 
-    dom.parentElement?.addEventListener("dragover", onDragOver);
-    dom.parentElement?.addEventListener("drop", onDrop);
+    dom.addEventListener("dragover", onDragOver);
+    dom.addEventListener("drop", onDrop);
     return () => {
-      dom.parentElement?.removeEventListener("dragover", onDragOver);
-      dom.parentElement?.removeEventListener("drop", onDrop);
+      dom.removeEventListener("dragover", onDragOver);
+      dom.removeEventListener("drop", onDrop);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
@@ -137,6 +151,15 @@ export function DragHandle({ editor }: { editor: Editor }) {
       >
         <GripVertical className="h-3.5 w-3.5" />
       </button>
+      {onCommentBlock ? (
+        <button
+          onClick={() => onCommentBlock(hoveredId)}
+          className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-hover"
+          aria-label="Comment on this block"
+        >
+          <MessageSquarePlus className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
     </div>
   );
 }

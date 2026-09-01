@@ -1,5 +1,5 @@
 import "server-only";
-import { db, comments, users, eq, and, isNull } from "@notion-clone/database";
+import { db, comments, commentMentions, users, eq, and, isNull, inArray } from "@notion-clone/database";
 import {
   createCommentSchema,
   updateCommentSchema,
@@ -15,7 +15,7 @@ import { assertPagePermission } from "../permissions/assert";
 
 export async function listComments(userId: string, pageId: string) {
   await assertPagePermission(userId, pageId, "view");
-  return db
+  const rows = await db
     .select({
       id: comments.id,
       blockId: comments.blockId,
@@ -31,23 +31,50 @@ export async function listComments(userId: string, pageId: string) {
     .from(comments)
     .innerJoin(users, eq(users.id, comments.authorId))
     .where(and(eq(comments.pageId, pageId), isNull(comments.deletedAt)));
+
+  const commentIds = rows.map((r) => r.id);
+  const mentions = commentIds.length
+    ? await db
+        .select({ commentId: commentMentions.commentId, userId: commentMentions.mentionedUserId })
+        .from(commentMentions)
+        .where(inArray(commentMentions.commentId, commentIds))
+    : [];
+  const mentionsByComment = new Map<string, string[]>();
+  for (const m of mentions) {
+    const list = mentionsByComment.get(m.commentId) ?? [];
+    list.push(m.userId);
+    mentionsByComment.set(m.commentId, list);
+  }
+
+  return rows.map((row) => ({ ...row, mentionedUserIds: mentionsByComment.get(row.id) ?? [] }));
 }
 
 export async function createComment(userId: string, raw: CreateCommentInput) {
   const input = createCommentSchema.parse(raw);
   await assertPagePermission(userId, input.pageId, "comment");
 
-  const [comment] = await db
-    .insert(comments)
-    .values({
-      pageId: input.pageId,
-      blockId: input.blockId ?? null,
-      parentCommentId: input.parentCommentId ?? null,
-      authorId: userId,
-      body: input.body,
-    })
-    .returning();
-  return comment;
+  return db.transaction(async (tx) => {
+    const [comment] = await tx
+      .insert(comments)
+      .values({
+        pageId: input.pageId,
+        blockId: input.blockId ?? null,
+        parentCommentId: input.parentCommentId ?? null,
+        authorId: userId,
+        body: input.body,
+      })
+      .returning();
+    if (!comment) throw new Error("Failed to create comment.");
+
+    const mentionedUserIds = [...new Set(input.mentionedUserIds ?? [])];
+    if (mentionedUserIds.length > 0) {
+      await tx
+        .insert(commentMentions)
+        .values(mentionedUserIds.map((mentionedUserId) => ({ commentId: comment.id, mentionedUserId })));
+    }
+
+    return comment;
+  });
 }
 
 export async function updateComment(userId: string, raw: UpdateCommentInput) {

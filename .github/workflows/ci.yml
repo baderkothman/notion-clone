@@ -16,6 +16,8 @@ env:
   DATABASE_URL: postgresql://notion:notion_test_password@localhost:5432/notion_clone_test
   AUTH_SECRET: ci-test-secret-not-for-production-use-only-32b
   REALTIME_JWT_SECRET: ci-test-secret-not-for-production-use-only-32b
+  REALTIME_PORT: "1234"
+  REALTIME_URL: ws://localhost:1234
   S3_ENDPOINT: http://localhost:9000
   S3_REGION: us-east-1
   S3_BUCKET: notion-clone-files
@@ -97,6 +99,9 @@ jobs:
       - name: Run database migrations
         run: pnpm db:migrate
 
+      - name: Run integration tests
+        run: pnpm test:integration
+
       - name: Build
         run: pnpm --filter web build
 
@@ -105,8 +110,11 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Start realtime server
+        run: nohup pnpm --filter realtime start > /tmp/realtime-start.log 2>&1 &
+
       - name: Wait for server
-        run: npx wait-on http://localhost:3000/sign-in --timeout 30000
+        run: npx wait-on http://localhost:3000/sign-in http://localhost:1234 --timeout 30000
 
       - name: Run e2e tests
         run: pnpm --filter web exec playwright test
@@ -114,6 +122,10 @@ jobs:
       - name: Print server logs on failure
         if: failure()
         run: cat /tmp/next-start.log || true
+
+      - name: Print realtime server logs on failure
+        if: failure()
+        run: cat /tmp/realtime-start.log || true
 
       - name: Upload Playwright report on failure
         if: failure()

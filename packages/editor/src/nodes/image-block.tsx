@@ -1,66 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { ImageIcon, Loader2 } from "lucide-react";
-import type { EditorFileService } from "../types";
+import { ImageBlockSchema, type ImageBlockAttrs, type ImageBlockOptions } from "./image-block-schema";
 
-export interface ImageBlockAttrs {
-  fileId: string | null;
-  alt: string;
-}
+export { type ImageBlockAttrs, type ImageBlockOptions } from "./image-block-schema";
 
-export interface ImageBlockOptions {
-  HTMLAttributes: Record<string, unknown>;
-  fileService: EditorFileService | null;
-}
-
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    imageBlock: {
-      insertImagePlaceholder: () => ReturnType;
-    };
-  }
-}
-
-/** Stores a `fileId`, not a URL — presigned S3 URLs expire, so the display URL is
- * fetched fresh on render (see ImageBlockView), which also means access is re-checked
- * server-side every time the image is viewed rather than baked into stored content. */
-export const ImageBlock = Node.create<ImageBlockOptions>({
-  name: "imageBlock",
-  group: "block",
-  atom: true,
-  selectable: true,
-
-  addOptions() {
-    return { HTMLAttributes: {}, fileService: null };
-  },
-
-  addAttributes() {
-    return {
-      fileId: { default: null },
-      alt: { default: "" },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: "div[data-type='image-block']" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["div", mergeAttributes(HTMLAttributes, { "data-type": "image-block" })];
-  },
-
-  addCommands() {
-    return {
-      insertImagePlaceholder:
-        () =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { fileId: null, alt: "" } }),
-    };
-  },
-
+export const ImageBlock = ImageBlockSchema.extend({
   addNodeView() {
     return ReactNodeViewRenderer(ImageBlockView);
   },

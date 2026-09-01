@@ -85,6 +85,11 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
               interactive: true,
               trigger: "manual",
               placement: "bottom-start",
+              // Without this, Tippy sets aria-expanded on the reference — here
+              // `document.body` — which doesn't support that attribute (an
+              // axe-core/WCAG "aria-allowed-attr" violation) and would apply globally,
+              // not scoped to the menu. See selection-toolbar.tsx for the same fix.
+              aria: { expanded: false },
             });
           },
           onUpdate: (props) => {

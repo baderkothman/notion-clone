@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForContentPersisted } from "./helpers";
 
 /**
  * "Share to web": a page owner enables the public toggle, copies the link, and an
@@ -30,7 +31,9 @@ test("a publicly shared page is viewable by an anonymous visitor; an unshared on
   await owner.getByLabel("Page title").fill("A Public Page");
   await owner.locator(".prose-editor").click();
   await owner.keyboard.type("Anyone with the link can read this.");
-  await expect(owner.getByText("Saved")).toBeVisible({ timeout: 10_000 });
+  // The anonymous visitor below reads straight from Postgres via /share/[token], so this
+  // must wait for durable persistence, not just the in-browser sync indicator.
+  await waitForContentPersisted(owner);
 
   // Before sharing: an anonymous visitor hitting this exact page URL is redirected to
   // sign-in (protected route), and the share route 404s for a page never made public.

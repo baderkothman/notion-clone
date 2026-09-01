@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { waitForContentPersisted } from "./helpers";
 
 /**
  * The primary happy-path flow from the top-level spec's E2E list: sign up → create
@@ -35,8 +36,10 @@ test.describe("core flow", () => {
     await editor.click();
     await page.keyboard.type("Hello from Playwright.");
 
-    // Autosave should eventually report "Saved".
-    await expect(page.getByText("Saved")).toBeVisible({ timeout: 10_000 });
+    // Content must be durably captured before the reload-and-check below — via plain
+    // autosave ("Saved") or realtime collaboration ("Live"), depending on whether
+    // apps/realtime is configured in this environment (see helpers.ts).
+    await waitForContentPersisted(page);
 
     const pageUrl = page.url();
 

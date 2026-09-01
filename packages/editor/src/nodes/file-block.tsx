@@ -1,29 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { File as FileIcon, Loader2, Paperclip } from "lucide-react";
-import type { EditorFileService } from "../types";
+import { FileBlockSchema, type FileBlockAttrs, type FileBlockOptions } from "./file-block-schema";
 
-export interface FileBlockAttrs {
-  fileId: string | null;
-  filename: string;
-  sizeBytes: number;
-}
-
-export interface FileBlockOptions {
-  HTMLAttributes: Record<string, unknown>;
-  fileService: EditorFileService | null;
-}
-
-declare module "@tiptap/core" {
-  interface Commands<ReturnType> {
-    fileBlock: {
-      insertFilePlaceholder: () => ReturnType;
-    };
-  }
-}
+export { type FileBlockAttrs, type FileBlockOptions } from "./file-block-schema";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -31,41 +13,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export const FileBlock = Node.create<FileBlockOptions>({
-  name: "fileBlock",
-  group: "block",
-  atom: true,
-  selectable: true,
-
-  addOptions() {
-    return { HTMLAttributes: {}, fileService: null };
-  },
-
-  addAttributes() {
-    return {
-      fileId: { default: null },
-      filename: { default: "" },
-      sizeBytes: { default: 0 },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: "div[data-type='file-block']" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["div", mergeAttributes(HTMLAttributes, { "data-type": "file-block" })];
-  },
-
-  addCommands() {
-    return {
-      insertFilePlaceholder:
-        () =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { fileId: null, filename: "", sizeBytes: 0 } }),
-    };
-  },
-
+export const FileBlock = FileBlockSchema.extend({
   addNodeView() {
     return ReactNodeViewRenderer(FileBlockView);
   },
