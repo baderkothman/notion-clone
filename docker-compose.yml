@@ -1,0 +1,52 @@
+name: notion-clone
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: notion
+      POSTGRES_PASSWORD: notion_dev_password
+      POSTGRES_DB: notion_clone
+    ports:
+      # Host port 5433, not 5432: avoids clashing with a Postgres install already
+      # running natively on the host machine (a common dev-machine collision).
+      - "5433:5432"
+    volumes:
+      - ./docker/pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notion -d notion_clone"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: notion_minio
+      MINIO_ROOT_PASSWORD: notion_minio_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./docker/minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 notion_minio notion_minio_password 2>/dev/null;
+      mc mb -p local/notion-clone-files 2>/dev/null;
+      mc anonymous set download local/notion-clone-files/public 2>/dev/null;
+      exit 0
+      "

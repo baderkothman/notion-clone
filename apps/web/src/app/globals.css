@@ -1,0 +1,268 @@
+@import "tailwindcss";
+@source "../../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../../packages/editor/src/**/*.{ts,tsx}";
+
+/* ---------------------------------------------------------------------------
+ * Design tokens. Semantic names only — components reference `bg-surface`,
+ * `text-muted`, `border-default`, never a raw color. Values are calm and
+ * restrained on purpose: a working tool, not a marketing page. See
+ * docs/ARCHITECTURE.md "Design System" for the rationale.
+ * ------------------------------------------------------------------------- */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.625rem;
+  --text-3xl: 2.25rem;
+
+  --animate-fade-in: fade-in 120ms ease-out;
+  --animate-slide-down: slide-down 140ms ease-out;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-down {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-sidebar: #f7f6f4;
+  --color-text: #37352f;
+  --color-text-muted: #6b6a67;
+  --color-text-faint: #9b9a97;
+  --color-border: #e9e8e5;
+  --color-border-strong: #d9d8d5;
+  --color-hover: #efeeec;
+  --color-selected: #e7f0fe;
+  --color-focus: #2f80ed;
+  --color-accent: #2f80ed;
+  --color-accent-text: #ffffff;
+  --color-destructive: #eb5757;
+  --color-destructive-hover: #dc4545;
+  --color-success: #2f9e44;
+  --color-warning: #d9822b;
+  --color-editor-selection: rgba(47, 128, 237, 0.16);
+  --color-editor-placeholder: #b7b6b3;
+  --color-shadow: 0 1px 2px rgba(15, 15, 15, 0.06), 0 2px 8px rgba(15, 15, 15, 0.08);
+}
+
+.dark {
+  --color-bg: #191919;
+  --color-surface: #202020;
+  --color-surface-raised: #252525;
+  --color-sidebar: #202020;
+  --color-text: #e6e6e4;
+  --color-text-muted: #9b9a97;
+  --color-text-faint: #6b6a67;
+  --color-border: #2f2f2f;
+  --color-border-strong: #3d3d3d;
+  --color-hover: #2a2a2a;
+  --color-selected: #1f3a5f;
+  --color-focus: #5b9bf5;
+  --color-accent: #5b9bf5;
+  --color-accent-text: #0f0f0f;
+  --color-destructive: #f47171;
+  --color-destructive-hover: #f68b8b;
+  --color-success: #4cae5c;
+  --color-warning: #e0973b;
+  --color-editor-selection: rgba(91, 155, 245, 0.22);
+  --color-editor-placeholder: #5a5a58;
+  --color-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-sidebar: var(--color-sidebar);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-faint: var(--color-text-faint);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-hover: var(--color-hover);
+  --color-selected: var(--color-selected);
+  --color-focus: var(--color-focus);
+  --color-accent: var(--color-accent);
+  --color-accent-text: var(--color-accent-text);
+  --color-destructive: var(--color-destructive);
+  --color-destructive-hover: var(--color-destructive-hover);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-editor-selection: var(--color-editor-selection);
+  --color-editor-placeholder: var(--color-editor-placeholder);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--color-editor-selection);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Editor content styles. Tiptap/ProseMirror renders semantic HTML directly (no
+ * dangerouslySetInnerHTML — see docs/SECURITY.md), so these are plain descendant
+ * selectors rather than a `prose` plugin, kept in one place instead of scattered
+ * Tailwind utility soup across every block's NodeView.
+ * ------------------------------------------------------------------------- */
+@layer components {
+  .prose-editor {
+    color: var(--color-text);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  .prose-editor > * + * {
+    margin-top: 0.35em;
+  }
+  .prose-editor h1 {
+    font-size: 1.875em;
+    font-weight: 700;
+    margin-top: 1.4em;
+  }
+  .prose-editor h2 {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin-top: 1.2em;
+  }
+  .prose-editor h3 {
+    font-size: 1.25em;
+    font-weight: 600;
+    margin-top: 1em;
+  }
+  .prose-editor ul,
+  .prose-editor ol {
+    padding-left: 1.5em;
+  }
+  .prose-editor ul {
+    list-style: disc;
+  }
+  .prose-editor ol {
+    list-style: decimal;
+  }
+  .prose-editor blockquote {
+    border-left: 3px solid var(--color-border-strong);
+    padding-left: 0.9em;
+    color: var(--color-text-muted);
+  }
+  .prose-editor code {
+    background: var(--color-hover);
+    border-radius: 4px;
+    padding: 0.15em 0.35em;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+  .prose-editor pre {
+    background: var(--color-hover);
+    border-radius: 6px;
+    padding: 0.9em 1em;
+    overflow-x: auto;
+  }
+  .prose-editor pre code {
+    background: none;
+    padding: 0;
+  }
+  .prose-editor hr {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 1.5em 0;
+  }
+  .prose-editor a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .prose-editor ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0;
+  }
+  .prose-editor ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+  }
+  .prose-editor ul[data-type="taskList"] li > label {
+    margin-top: 0.3em;
+  }
+  .prose-editor table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .prose-editor th,
+  .prose-editor td {
+    border: 1px solid var(--color-border);
+    padding: 0.4em 0.6em;
+    text-align: left;
+  }
+  .prose-editor th {
+    background: var(--color-hover);
+    font-weight: 600;
+  }
+  .prose-editor mark {
+    border-radius: 3px;
+    padding: 0.05em 0;
+  }
+  .prose-editor p.is-editor-empty:first-child::before,
+  .prose-editor .is-empty::before {
+    content: attr(data-placeholder);
+    color: var(--color-editor-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+}
