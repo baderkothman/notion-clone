@@ -20,7 +20,8 @@ test("a user cannot open another user's private page by guessing its URL", async
   await pageA.getByRole("button", { name: "Create workspace" }).click();
   await expect(pageA).toHaveURL(/\/w\//, { timeout: 15_000 });
 
-  await pageA.getByRole("button", { name: "New page" }).click();
+  await pageA.getByRole("button", { name: "New" }).click();
+  await pageA.getByRole("menuitem", { name: "Page" }).click();
   await expect(pageA).toHaveURL(/\/p\//, { timeout: 15_000 });
   const privatePageUrl = pageA.url();
   await pageA.getByLabel("Page title").fill("User A's Private Page");

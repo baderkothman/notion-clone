@@ -4,24 +4,37 @@ import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/server/session";
 import { runAction } from "@/server/action-result";
 import { createWorkspace } from "@/server/workspaces/create-workspace";
+import { updateWorkspace } from "@/server/workspaces/update-workspace";
+import { listWorkspaceMembers, listPendingInvitations } from "@/server/workspaces/queries";
 import {
   inviteMember,
   updateMemberRole,
   removeMember,
+  revokeInvitation,
   acceptInvitation,
   getInvitationPreview,
 } from "@/server/workspaces/members";
+import { assertWorkspaceMembership } from "@/server/permissions/assert";
 import { auth } from "@notion-clone/auth";
 import type {
   CreateWorkspaceInput,
+  UpdateWorkspaceInput,
   InviteMemberInput,
   UpdateMemberRoleInput,
   RemoveMemberInput,
+  RevokeInvitationInput,
 } from "@notion-clone/contracts";
 
 export async function createWorkspaceAction(input: CreateWorkspaceInput) {
   const userId = await requireUserId();
   return runAction(() => createWorkspace(userId, input));
+}
+
+export async function updateWorkspaceAction(input: UpdateWorkspaceInput) {
+  const userId = await requireUserId();
+  const result = await runAction(() => updateWorkspace(userId, input));
+  revalidatePath(`/w`, "layout");
+  return result;
 }
 
 export async function inviteMemberAction(input: InviteMemberInput) {
@@ -43,6 +56,27 @@ export async function removeMemberAction(input: RemoveMemberInput) {
   const result = await runAction(() => removeMember(userId, input));
   revalidatePath(`/w`, "layout");
   return result;
+}
+
+export async function revokeInvitationAction(input: RevokeInvitationInput) {
+  const userId = await requireUserId();
+  return runAction(() => revokeInvitation(userId, input));
+}
+
+export async function listWorkspaceMembersAction(workspaceId: string) {
+  const userId = await requireUserId();
+  return runAction(async () => {
+    await assertWorkspaceMembership(userId, workspaceId);
+    return listWorkspaceMembers(workspaceId);
+  });
+}
+
+export async function listPendingInvitationsAction(workspaceId: string) {
+  const userId = await requireUserId();
+  return runAction(async () => {
+    await assertWorkspaceMembership(userId, workspaceId);
+    return listPendingInvitations(workspaceId);
+  });
 }
 
 export async function getInvitationPreviewAction(token: string) {

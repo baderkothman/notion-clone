@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/sidebar/sidebar";
 import type { WorkspaceSummary } from "@/components/sidebar/workspace-switcher";
 import type { PageTreeNode } from "@notion-clone/contracts";
 import type { FavoriteItem } from "@/components/sidebar/favorites-list";
+import { SidebarRefreshProvider } from "@/components/sidebar-refresh-context";
 
 /**
  * Below `md`, the sidebar becomes an off-canvas drawer (not a shrunk copy of the desktop
@@ -29,45 +30,69 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  // Bumped whenever a top-level page is created/moved/archived from anywhere in the
+  // app (the sidebar's own "New" menu, the workspace empty-state button, the editor's
+  // "Page" slash command) so both sidebar instances re-fetch their root list — see
+  // sidebar-refresh-context.tsx for why a prop alone doesn't do this.
+  const [treeRefreshKey, setTreeRefreshKey] = React.useState(0);
+  const notify = React.useCallback(() => setTreeRefreshKey((k) => k + 1), []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg">
-      {/* Desktop sidebar */}
-      <div className="hidden md:block">
-        <Sidebar currentWorkspace={currentWorkspace} workspaces={workspaces} rootPages={rootPages} favorites={favorites} user={user} />
-      </div>
-
-      {/* Mobile drawer */}
-      <div
-        className={cn(
-          "fixed inset-0 z-40 bg-black/40 transition-opacity md:hidden",
-          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-        onClick={() => setMobileOpen(false)}
-        aria-hidden={!mobileOpen}
-      />
-      <div
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 transition-transform md:hidden",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
-        )}
-      >
-        <Sidebar currentWorkspace={currentWorkspace} workspaces={workspaces} rootPages={rootPages} favorites={favorites} user={user} />
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-11 shrink-0 items-center border-b border-border px-2 md:hidden">
-          <button
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label={mobileOpen ? "Close sidebar" : "Open sidebar"}
-            className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-hover"
-          >
-            {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </button>
-          <span className="ml-2 truncate text-sm font-medium text-text">{currentWorkspace.name}</span>
+    <SidebarRefreshProvider onRefresh={notify}>
+      <div className="flex h-screen overflow-hidden bg-bg">
+        {/* Desktop sidebar */}
+        <div className="hidden md:block">
+          <Sidebar
+            currentWorkspace={currentWorkspace}
+            workspaces={workspaces}
+            rootPages={rootPages}
+            favorites={favorites}
+            user={user}
+            treeRefreshKey={treeRefreshKey}
+            onPageCreated={notify}
+          />
         </div>
-        <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
+
+        {/* Mobile drawer */}
+        <div
+          className={cn(
+            "fixed inset-0 z-40 bg-black/40 transition-opacity md:hidden",
+            mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+          onClick={() => setMobileOpen(false)}
+          aria-hidden={!mobileOpen}
+        />
+        <div
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 transition-transform md:hidden",
+            mobileOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          <Sidebar
+            currentWorkspace={currentWorkspace}
+            workspaces={workspaces}
+            rootPages={rootPages}
+            favorites={favorites}
+            user={user}
+            treeRefreshKey={treeRefreshKey}
+            onPageCreated={notify}
+          />
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-11 shrink-0 items-center border-b border-border px-2 md:hidden">
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label={mobileOpen ? "Close sidebar" : "Open sidebar"}
+              className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-hover"
+            >
+              {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+            <span className="ml-2 truncate text-sm font-medium text-text">{currentWorkspace.name}</span>
+          </div>
+          <div className="min-w-0 flex-1 overflow-y-auto">{children}</div>
+        </div>
       </div>
-    </div>
+    </SidebarRefreshProvider>
   );
 }

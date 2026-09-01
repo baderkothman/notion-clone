@@ -62,9 +62,11 @@ index, recomputed on the title/body write paths (`apps/web/src/server/search/ind
 
 **History is coalesced, not append-only-per-keystroke.** `page_revisions` gets a new row
 at most once per 5-minute window per page during active editing
-(`apps/web/src/server/history/snapshot-policy.ts`), not once per autosave tick. A
-scheduled thinning job (hourly beyond 24h, daily beyond 30 days) is designed but not
-implemented — noted as a follow-up in `NOTION_PARITY.md`.
+(`apps/web/src/server/history/snapshot-policy.ts`), not once per autosave tick. Older
+snapshots are thinned opportunistically every time a new one is taken — no scheduled
+job/cron needed — to one per hour beyond 24h and one per day beyond 30 days
+(`apps/web/src/server/history/prune-revisions.ts`; the bucketing decision itself is a
+pure, unit-tested function in `prune-revisions-core.ts`).
 
 ## Indexing
 

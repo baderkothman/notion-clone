@@ -46,6 +46,12 @@ export const removeMemberSchema = z.object({
 });
 export type RemoveMemberInput = z.infer<typeof removeMemberSchema>;
 
+export const revokeInvitationSchema = z.object({
+  workspaceId: z.string().uuid(),
+  invitationId: z.string().uuid(),
+});
+export type RevokeInvitationInput = z.infer<typeof revokeInvitationSchema>;
+
 /** Role → capability matrix. The single source of truth other modules import instead of
  * re-deriving "can this role do X" logic ad hoc. */
 export const ROLE_CAPABILITIES = {

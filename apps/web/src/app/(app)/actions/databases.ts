@@ -1,10 +1,12 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/server/session";
 import { runAction } from "@/server/action-result";
 import { listProperties, createProperty, updateProperty, deleteProperty } from "@/server/databases/properties";
 import { createRow, listRows, setRowValue } from "@/server/databases/rows";
 import { listViews, createView, updateView } from "@/server/databases/views";
+import { createDatabase } from "@/server/databases/create-database";
 import type {
   CreatePropertyInput,
   UpdatePropertyInput,
@@ -12,7 +14,15 @@ import type {
   SetRowValueInput,
   CreateViewInput,
   UpdateViewInput,
+  CreatePageInput,
 } from "@notion-clone/contracts";
+
+export async function createDatabaseAction(input: Omit<CreatePageInput, "type">) {
+  const userId = await requireUserId();
+  const result = await runAction(() => createDatabase(userId, input));
+  revalidatePath(`/w`, "layout");
+  return result;
+}
 
 export async function listPropertiesAction(databasePageId: string) {
   const userId = await requireUserId();

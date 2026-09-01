@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { ZodError } from "zod";
 import { signIn } from "@notion-clone/auth";
 import { signUpUser } from "@/server/auth/sign-up";
 import { requestPasswordReset, resetPassword } from "@/server/auth/password-reset";
@@ -11,7 +12,15 @@ export interface ActionState {
   error?: string;
 }
 
+/** Turns any thrown error into a message worth showing the user. Zod validation
+ * failures (e.g. "Password must be at least 10 characters") are surfaced directly
+ * instead of falling back to a generic message — the browser's own HTML validation
+ * (required/minLength/type=email) catches most bad input before submission, but
+ * anything that reaches the server (autofill, non-standard clients, a validation rule
+ * HTML can't express) needs its rejection explained, not swallowed into "check your
+ * details and try again". */
 function messageFor(error: unknown): string {
+  if (error instanceof ZodError) return error.issues[0]?.message ?? "Please check your details and try again.";
   if (error instanceof DomainError) return error.message;
   return "Something went wrong. Please try again.";
 }
@@ -24,8 +33,7 @@ export async function signUpAction(_prev: ActionState, formData: FormData): Prom
       password: String(formData.get("password") ?? ""),
     });
   } catch (error) {
-    if (error instanceof DomainError) return { error: messageFor(error) };
-    return { error: "Could not create your account. Check your details and try again." };
+    return { error: messageFor(error) };
   }
 
   try {

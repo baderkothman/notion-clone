@@ -1,0 +1,249 @@
+"use client";
+
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Plus, Table2, Columns3, List as ListIcon } from "lucide-react";
+import { Button, cn } from "@notion-clone/ui";
+import type { SelectOption } from "@notion-clone/contracts";
+import {
+  createPropertyAction,
+  updatePropertyAction,
+  deletePropertyAction,
+  createRowAction,
+  setRowValueAction,
+  createViewAction,
+  updateViewAction,
+} from "@/app/(app)/actions/databases";
+import { updatePageTitleAction } from "@/app/(app)/actions/pages";
+import type { DatabaseProperty, DatabaseRow, DatabaseRowValue, DatabaseViewRecord } from "./types";
+import { nextOptionColor } from "./select-editor";
+import type { WorkspaceMemberOption } from "./property-cell";
+import { TableView } from "./table-view";
+import { BoardView } from "./board-view";
+import { ListView } from "./list-view";
+import { NewPropertyButton } from "./new-property-button";
+
+export interface DatabaseViewProps {
+  workspaceId: string;
+  workspaceSlug: string;
+  databasePageId: string;
+  editable: boolean;
+  initialProperties: DatabaseProperty[];
+  initialRows: DatabaseRow[];
+  initialValues: DatabaseRowValue[];
+  initialViews: DatabaseViewRecord[];
+  members: WorkspaceMemberOption[];
+}
+
+/** rowId -> propertyId -> value, rebuilt whenever the flat `values` array changes — O(1)
+ * cell lookups instead of an array `.find()` per cell per render. */
+function indexValues(values: DatabaseRowValue[]): Map<string, Map<string, unknown>> {
+  const index = new Map<string, Map<string, unknown>>();
+  for (const v of values) {
+    if (!index.has(v.rowPageId)) index.set(v.rowPageId, new Map());
+    index.get(v.rowPageId)!.set(v.propertyId, v.value);
+  }
+  return index;
+}
+
+const VIEW_ICONS = { table: Table2, board: Columns3, list: ListIcon, calendar: Table2 } as const;
+
+export function DatabaseView({
+  workspaceId,
+  workspaceSlug,
+  databasePageId,
+  editable,
+  initialProperties,
+  initialRows,
+  initialValues,
+  initialViews,
+  members,
+}: DatabaseViewProps) {
+  const router = useRouter();
+  const [properties, setProperties] = React.useState(initialProperties);
+  const [rows, setRows] = React.useState(initialRows);
+  const [valueIndex, setValueIndex] = React.useState(() => indexValues(initialValues));
+  const [views, setViews] = React.useState(initialViews);
+  const [activeViewId, setActiveViewId] = React.useState(initialViews[0]?.id ?? null);
+  const activeView = views.find((v) => v.id === activeViewId) ?? views[0] ?? null;
+
+  function getValue(rowId: string, propertyId: string) {
+    return valueIndex.get(rowId)?.get(propertyId) ?? null;
+  }
+
+  async function handleSetValue(rowId: string, propertyId: string, value: unknown) {
+    setValueIndex((prev) => {
+      const next = new Map(prev);
+      const rowMap = new Map(next.get(rowId));
+      rowMap.set(propertyId, value);
+      next.set(rowId, rowMap);
+      return next;
+    });
+    const result = await setRowValueAction({ rowPageId: rowId, propertyId, value });
+    if (!result.ok) toast.error(result.error);
+  }
+
+  async function handleTitleChange(rowId: string, title: string) {
+    setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, title } : r)));
+    const result = await updatePageTitleAction({ pageId: rowId, title });
+    if (!result.ok) toast.error(result.error);
+  }
+
+  async function handleCreateOption(propertyId: string, name: string): Promise<SelectOption> {
+    const property = properties.find((p) => p.id === propertyId)!;
+    const existing = property.config.options as SelectOption[] | undefined;
+    const option: SelectOption = { id: crypto.randomUUID(), name, color: nextOptionColor(existing ?? []) };
+    const nextConfig = { ...property.config, options: [...(existing ?? []), option] };
+    setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, config: nextConfig } : p)));
+    const result = await updatePropertyAction({ propertyId, config: nextConfig });
+    if (!result.ok) toast.error(result.error);
+    return option;
+  }
+
+  async function handleAddRow() {
+    const result = await createRowAction(databasePageId, workspaceId);
+    if (!result.ok) return toast.error(result.error);
+    setRows((prev) => [...prev, { id: result.value.id, title: "", icon: null, sortKey: result.value.sortKey }]);
+  }
+
+  async function handleAddProperty(name: string, type: DatabaseProperty["type"]) {
+    const result = await createPropertyAction({ databasePageId, name, type });
+    if (!result.ok) return toast.error(result.error);
+    setProperties((prev) => [...prev, result.value as DatabaseProperty]);
+  }
+
+  async function handleRenameProperty(propertyId: string, name: string) {
+    setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, name } : p)));
+    const result = await updatePropertyAction({ propertyId, name });
+    if (!result.ok) toast.error(result.error);
+  }
+
+  async function handleDeleteProperty(propertyId: string) {
+    setProperties((prev) => prev.filter((p) => p.id !== propertyId));
+    const result = await deletePropertyAction({ propertyId });
+    if (!result.ok) toast.error(result.error);
+  }
+
+  async function handleAddView(type: DatabaseViewRecord["type"]) {
+    const result = await createViewAction({ databasePageId, name: type === "table" ? "Table" : type === "board" ? "Board" : "List", type });
+    if (!result.ok) return toast.error(result.error);
+    setViews((prev) => [...prev, result.value as DatabaseViewRecord]);
+    setActiveViewId(result.value!.id);
+  }
+
+  async function handleSetGroupBy(propertyId: string | null) {
+    if (!activeView) return;
+    setViews((prev) =>
+      prev.map((v) => (v.id === activeView.id ? { ...v, config: { ...v.config, groupByPropertyId: propertyId } } : v)),
+    );
+    // The server merges this into the view's existing config (filters/sorts untouched)
+    // — see updateView in server/databases/views.ts — so only the changed field needs
+    // to be sent, sidestepping the strict Zod shape for `filters`/`sorts` this UI never
+    // edits.
+    const result = await updateViewAction({ viewId: activeView.id, config: { groupByPropertyId: propertyId } });
+    if (!result.ok) toast.error(result.error);
+  }
+
+  function openRow(rowId: string) {
+    router.push(`/w/${workspaceSlug}/p/${rowId}`);
+  }
+
+  return (
+    <div className="mx-auto max-w-full px-8 py-6">
+      <div className="mb-3 flex items-center gap-1 border-b border-border">
+        {views.map((view) => {
+          const Icon = VIEW_ICONS[view.type];
+          return (
+            <button
+              key={view.id}
+              onClick={() => setActiveViewId(view.id)}
+              className={cn(
+                "flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
+                view.id === activeView?.id
+                  ? "border-text text-text"
+                  : "border-transparent text-text-muted hover:text-text",
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {view.name}
+            </button>
+          );
+        })}
+        {editable ? (
+          <div className="ml-auto mb-1 flex items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={() => handleAddView("table")}>
+              <Plus className="h-3.5 w-3.5" /> Table
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => handleAddView("board")}>
+              <Plus className="h-3.5 w-3.5" /> Board
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => handleAddView("list")}>
+              <Plus className="h-3.5 w-3.5" /> List
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {activeView?.type === "board" ? (
+        <div className="mb-3 flex items-center gap-2 text-sm text-text-muted">
+          <span>Group by</span>
+          <select
+            value={(activeView.config.groupByPropertyId as string | undefined) ?? ""}
+            onChange={(e) => handleSetGroupBy(e.target.value || null)}
+            className="rounded-md border border-border bg-surface px-2 py-1 text-sm"
+            disabled={!editable}
+          >
+            <option value="">None</option>
+            {properties
+              .filter((p) => p.type === "select" || p.type === "status")
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+        </div>
+      ) : null}
+
+      {!activeView || activeView.type === "table" ? (
+        <TableView
+          properties={properties}
+          rows={rows}
+          getValue={getValue}
+          onSetValue={handleSetValue}
+          onTitleChange={handleTitleChange}
+          onCreateOption={handleCreateOption}
+          onAddRow={handleAddRow}
+          onOpenRow={openRow}
+          onRenameProperty={handleRenameProperty}
+          onDeleteProperty={handleDeleteProperty}
+          members={members}
+          workspaceId={workspaceId}
+          editable={editable}
+        />
+      ) : activeView.type === "board" ? (
+        <BoardView
+          properties={properties}
+          rows={rows}
+          getValue={getValue}
+          onSetValue={handleSetValue}
+          groupByPropertyId={(activeView.config.groupByPropertyId as string | null) ?? null}
+          onAddRow={handleAddRow}
+          onOpenRow={openRow}
+          members={members}
+          workspaceId={workspaceId}
+          editable={editable}
+        />
+      ) : (
+        <ListView rows={rows} onAddRow={handleAddRow} onOpenRow={openRow} editable={editable} />
+      )}
+
+      {editable && (!activeView || activeView.type === "table") ? (
+        <div className="mt-2">
+          <NewPropertyButton onAdd={handleAddProperty} />
+        </div>
+      ) : null}
+    </div>
+  );
+}

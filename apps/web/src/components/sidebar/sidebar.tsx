@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
-import { cn } from "@notion-clone/ui";
+import { Database, FileText, Plus, Trash2 } from "lucide-react";
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@notion-clone/ui";
 import type { PageTreeNode } from "@notion-clone/contracts";
 import { WorkspaceSwitcher, type WorkspaceSummary } from "./workspace-switcher";
 import { PageTree } from "./page-tree";
@@ -12,6 +12,7 @@ import { FavoritesList, type FavoriteItem } from "./favorites-list";
 import { SidebarFooter } from "./sidebar-footer";
 import { CommandMenu } from "@/components/search/command-menu";
 import { createPageAction } from "@/app/(app)/actions/pages";
+import { createDatabaseAction } from "@/app/(app)/actions/databases";
 
 export function Sidebar({
   currentWorkspace,
@@ -19,12 +20,16 @@ export function Sidebar({
   rootPages,
   favorites,
   user,
+  treeRefreshKey,
+  onPageCreated,
 }: {
   currentWorkspace: WorkspaceSummary;
   workspaces: WorkspaceSummary[];
   rootPages: PageTreeNode[];
   favorites: FavoriteItem[];
   user: { name: string | null; email: string; image: string | null };
+  treeRefreshKey: number;
+  onPageCreated: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,6 +38,14 @@ export function Sidebar({
   async function handleNewPage() {
     const result = await createPageAction({ workspaceId: currentWorkspace.id });
     if (!result.ok) return toast.error(result.error);
+    onPageCreated();
+    router.push(`/w/${currentWorkspace.slug}/p/${result.value.id}`);
+  }
+
+  async function handleNewDatabase() {
+    const result = await createDatabaseAction({ workspaceId: currentWorkspace.id });
+    if (!result.ok) return toast.error(result.error);
+    onPageCreated();
     router.push(`/w/${currentWorkspace.slug}/p/${result.value.id}`);
   }
 
@@ -51,18 +64,27 @@ export function Sidebar({
 
         <div className="flex items-center justify-between px-2 pb-1">
           <p className="text-xs font-medium text-text-faint">Pages</p>
-          <button
-            onClick={handleNewPage}
-            aria-label="New page"
-            className="flex h-5 w-5 items-center justify-center rounded hover:bg-hover"
-          >
-            <Plus className="h-3.5 w-3.5 text-text-faint" />
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button aria-label="New" className="flex h-5 w-5 items-center justify-center rounded hover:bg-hover">
+                <Plus className="h-3.5 w-3.5 text-text-faint" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={handleNewPage}>
+                <FileText className="h-3.5 w-3.5" /> Page
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleNewDatabase}>
+                <Database className="h-3.5 w-3.5" /> Database
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <PageTree
           workspaceId={currentWorkspace.id}
           workspaceSlug={currentWorkspace.slug}
           initialItems={rootPages}
+          refreshKey={treeRefreshKey}
         />
 
         <Link

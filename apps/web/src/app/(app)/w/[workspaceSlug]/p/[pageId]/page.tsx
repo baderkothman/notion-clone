@@ -8,6 +8,13 @@ import { resolvePagePermission } from "@/server/permissions/resolve";
 import { roleAtLeast } from "@/server/permissions/resolve-core";
 import { NotFoundError, ForbiddenError } from "@notion-clone/shared";
 import { PageView } from "@/components/page/page-view";
+import { listProperties } from "@/server/databases/properties";
+import { listRows } from "@/server/databases/rows";
+import { listViews } from "@/server/databases/views";
+import { listWorkspaceMembers } from "@/server/workspaces/queries";
+import { DatabasePageHeader } from "@/components/database/database-page-header";
+import { DatabaseView } from "@/components/database/database-view";
+import type { DatabaseProperty, DatabaseViewRecord } from "@/components/database/types";
 
 export default async function PageRoute({
   params,
@@ -42,19 +49,46 @@ export default async function PageRoute({
   const editable = roleAtLeast(permission.role, "edit");
   const breadcrumbTrail = await getBreadcrumbs(pageId);
 
+  const pageHeaderProps = {
+    id: page.id,
+    title: page.title,
+    icon: page.icon,
+    visibility: page.visibility,
+    publicShareEnabled: page.publicShareEnabled,
+    publicShareToken: page.publicShareToken,
+  };
+
+  if (page.type === "database") {
+    const [properties, { rows, values }, views, members] = await Promise.all([
+      listProperties(userId, page.id),
+      listRows(userId, page.id),
+      listViews(userId, page.id),
+      listWorkspaceMembers(page.workspaceId),
+    ]);
+
+    return (
+      <div className="flex h-full flex-col overflow-y-auto">
+        <DatabasePageHeader workspaceSlug={workspaceSlug} page={pageHeaderProps} breadcrumbTrail={breadcrumbTrail} />
+        <DatabaseView
+          workspaceId={page.workspaceId}
+          workspaceSlug={workspaceSlug}
+          databasePageId={page.id}
+          editable={editable}
+          initialProperties={properties as DatabaseProperty[]}
+          initialRows={rows}
+          initialValues={values}
+          initialViews={views as DatabaseViewRecord[]}
+          members={members}
+        />
+      </div>
+    );
+  }
+
   return (
     <PageView
       workspaceId={page.workspaceId}
       workspaceSlug={workspaceSlug}
-      page={{
-        id: page.id,
-        title: page.title,
-        icon: page.icon,
-        coverImage: page.coverImage,
-        visibility: page.visibility,
-        publicShareEnabled: page.publicShareEnabled,
-        publicShareToken: page.publicShareToken,
-      }}
+      page={{ ...pageHeaderProps, coverImage: page.coverImage }}
       content={document?.content ?? EMPTY_TIPTAP_DOC}
       documentVersion={document?.version ?? 1}
       breadcrumbTrail={breadcrumbTrail}

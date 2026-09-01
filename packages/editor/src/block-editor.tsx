@@ -52,8 +52,12 @@ export function BlockEditor({
 
   return (
     <div className="relative">
-      <SelectionToolbar editor={editor} />
-      <DragHandle editor={editor} />
+      {editable ? (
+        <>
+          <SelectionToolbar editor={editor} />
+          <DragHandle editor={editor} />
+        </>
+      ) : null}
       <EditorContent editor={editor} />
     </div>
   );

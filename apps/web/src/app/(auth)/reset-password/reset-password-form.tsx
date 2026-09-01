@@ -1,17 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button, Input, Label } from "@notion-clone/ui";
 import { resetPasswordAction, type ActionState } from "../actions";
 
+/** Controlled field — see the comment in sign-up-form.tsx for why. */
 export function ResetPasswordForm({ token }: { token: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     resetPasswordAction,
     {},
   );
+  const [password, setPassword] = useState("");
 
   return (
-    <form action={formAction} className="space-y-3" noValidate>
+    <form action={formAction} className="space-y-3">
       <input type="hidden" name="token" value={token} />
       <div className="space-y-1.5">
         <Label htmlFor="password">New password</Label>
@@ -23,6 +25,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
           minLength={10}
           required
           autoFocus
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
       </div>
       {state.error ? (

@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same branch/PR instead of letting them pile up.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Test-only values — never real secrets. See docs/DEVELOPMENT.md's NODE_ENV warning:
+  # deliberately NOT set here, so `next build`/`next start` can set it themselves.
+  DATABASE_URL: postgresql://notion:notion_test_password@localhost:5432/notion_clone_test
+  AUTH_SECRET: ci-test-secret-not-for-production-use-only-32b
+  REALTIME_JWT_SECRET: ci-test-secret-not-for-production-use-only-32b
+  S3_ENDPOINT: http://localhost:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: notion-clone-files
+  S3_ACCESS_KEY_ID: notion_minio
+  S3_SECRET_ACCESS_KEY: notion_minio_password
+  S3_FORCE_PATH_STYLE: "true"
+  S3_PUBLIC_BASE_URL: http://localhost:3000/api/files
+  APP_URL: http://localhost:3000
+  AUTH_URL: http://localhost:3000
+
+jobs:
+  # Fast checks that don't need Postgres/MinIO — fails fast before paying for the
+  # heavier e2e job below.
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: notion
+          POSTGRES_PASSWORD: notion_test_password
+          POSTGRES_DB: notion_clone_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U notion -d notion_clone_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: notion_minio
+          MINIO_ROOT_PASSWORD: notion_minio_password
+          MINIO_DEFAULT_BUCKETS: notion-clone-files
+        ports: ["9000:9000", "9001:9001"]
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Run database migrations
+        run: pnpm db:migrate
+
+      - name: Build
+        run: pnpm --filter web build
+
+      - name: Start server
+        run: nohup pnpm --filter web exec next start -p 3000 > /tmp/next-start.log 2>&1 &
+        env:
+          NODE_ENV: production
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:3000/sign-in --timeout 30000
+
+      - name: Run e2e tests
+        run: pnpm --filter web exec playwright test
+
+      - name: Print server logs on failure
+        if: failure()
+        run: cat /tmp/next-start.log || true
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7

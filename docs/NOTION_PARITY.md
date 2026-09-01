@@ -19,12 +19,12 @@ Status legend: ✅ implemented & e2e-verified · 🟡 backend/schema done, UI pe
 | Feature | Status |
 |---|---|
 | Create / switch workspace | ✅ |
-| Workspace settings (rename/slug/icon) | 🟡 domain function exists (`updateWorkspaceSchema`); no settings UI page yet |
-| Members list | ✅ (`/w/[slug]/settings/members` route directory scaffolded; member-list UI itself is a follow-up) |
-| Invitations (mint token, email-scoped, 7-day TTL) | ✅ |
-| Invite acceptance page (`/invite/[token]`) | ✅ |
-| Roles: owner/admin/member/guest | ✅ enforced via `ROLE_CAPABILITIES` |
-| Member role change / removal | ✅ domain + action; UI list pending |
+| Workspace settings (rename/slug/icon) | ✅ `/w/[slug]/settings` — name, icon, URL/slug (with redirect on change) |
+| Members list | ✅ `/w/[slug]/settings/members` — avatars, roles, "(you)" marker |
+| Invitations (mint token, email-scoped, 7-day TTL) | ✅ invite form + pending-invitations list + revoke |
+| Invite acceptance page (`/invite/[token]`) | ✅ e2e-verified full loop: invite → sign up → accept → membership |
+| Roles: owner/admin/member/guest | ✅ enforced via `ROLE_CAPABILITIES`, role dropdown in members UI |
+| Member role change / removal | ✅ domain + action + UI (owner role is not editable/removable) |
 | Workspace deletion | ⬜ (owner-only capability flagged in `ROLE_CAPABILITIES`, no route yet) |
 
 ## Pages
@@ -97,8 +97,8 @@ concurrency prevents silent overwrites) but not merged live; a second editor see
 |---|---|
 | Page-level comments | ✅ |
 | Block-scoped comments (`blockId`) | 🟡 schema + API support a `blockId`; no UI affordance yet to attach a comment to a specific block (only page-level composer) |
-| Threads/replies | 🟡 schema supports `parentCommentId`; UI only renders top-level comments currently |
-| Resolve/reopen | ✅ |
+| Threads/replies | ✅ reply inline, indented under the parent, e2e-verified (`e2e/comments.spec.ts`) |
+| Resolve/reopen | ✅ resolving hides the whole thread by default; "Show resolved" reveals it |
 | Mentions | 🟡 schema (`comment_mentions`) exists; no `@mention` autocomplete UI or extraction-on-write wired |
 | Author identity, timestamps | ✅ |
 | Permission-aware visibility | ✅ (comment requires `comment` role minimum) |
@@ -130,11 +130,20 @@ concurrency prevents silent overwrites) but not merged live; a second editor see
 | Schema (properties, row values, views) | ✅ full domain model, extensible property/view types |
 | Domain functions (CRUD properties/rows/views) | ✅ |
 | Server actions | ✅ |
-| Table/Board/List/Calendar view UI | ⬜ **not built in this pass** — no way to create a database page or render any view from the UI yet |
+| Create a database (sidebar "New" → Database) | ✅ provisions a default title property + Table view |
+| Table view | ✅ inline-editable cells for every property type, add/rename/delete property, add row |
+| Board view | ✅ grouped by a Select/Status property, inline cell editing on cards, create option inline |
+| List view | ✅ minimal — titles only, opens the row's full page |
+| Calendar view | ⬜ not built — the view-type enum and schema support it, no renderer yet |
+| Property types: text/number/checkbox/url/date/select/multi_select/status | ✅ full read+edit UI, e2e-verified |
+| Property type: person | ✅ single-assignee picker from workspace members (Notion allows multiple; single is a scope cut) |
+| Property type: files | ✅ upload/attach reusing the editor's file service; minimal (no preview) |
+| Filters / sorts | ⬜ schema and contracts support them; no UI to build a filter or sort — views only group (Board) |
+| Row = page (comments, sharing, sub-content) | ✅ opening a row's "external link" icon goes to its full page |
 
-The backend for databases is real and tested at the type level, but there is currently no
-UI entry point to create a database page or interact with properties/rows/views. This is
-the second major deferred item — see the final report.
+E2E-verified end to end (`e2e/database.spec.ts`): create a database, add a Status
+property, add a row, set its title, create a new Status option inline, switch to Board,
+and confirm the row lands in the right column.
 
 ## Files
 
@@ -153,7 +162,7 @@ the second major deferred item — see the final report.
 | Automatic snapshots (5-minute coalescing) | ✅ |
 | View revision list | ✅ |
 | Restore (with pre-restore snapshot) | ✅ |
-| Pruning policy for old snapshots | 🟡 documented policy, no cron/job implemented yet |
+| Pruning policy for old snapshots | ✅ opportunistic (no cron needed), unit-tested bucketing logic |
 
 ## Trash
 

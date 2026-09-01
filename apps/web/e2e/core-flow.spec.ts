@@ -23,7 +23,8 @@ test.describe("core flow", () => {
     await expect(page).toHaveURL(/\/w\/acme-inc-/, { timeout: 15_000 });
     await expect(page.getByText("Welcome to Acme Inc")).toBeVisible();
 
-    await page.getByRole("button", { name: "New page" }).click();
+    await page.getByRole("button", { name: "New" }).click();
+    await page.getByRole("menuitem", { name: "Page" }).click();
     await expect(page).toHaveURL(/\/p\//, { timeout: 15_000 });
 
     const title = page.getByLabel("Page title");
@@ -57,5 +58,22 @@ test.describe("core flow", () => {
   test("unauthenticated visitors are redirected to sign-in", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/sign-in/);
+  });
+
+  test("a failed sign-in does not clear the form", async ({ page }) => {
+    // Regression test: these forms used to be uncontrolled `<form action={...}>`
+    // elements, and React/the browser reset uncontrolled fields after a
+    // `useActionState` action completes — even without a redirect — wiping
+    // everything the user had typed on every failed attempt. Fields are now
+    // controlled (see sign-in-form.tsx) specifically so this doesn't happen.
+    const email = `persist-${Date.now()}@example.com`;
+    await page.goto("/sign-in");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("wrong-password-here");
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page.getByText("Incorrect email or password.")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByLabel("Email")).toHaveValue(email);
+    await expect(page.getByLabel("Password")).toHaveValue("wrong-password-here");
   });
 });

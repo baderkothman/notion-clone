@@ -12,9 +12,11 @@ import {
   inviteMemberSchema,
   updateMemberRoleSchema,
   removeMemberSchema,
+  revokeInvitationSchema,
   type InviteMemberInput,
   type UpdateMemberRoleInput,
   type RemoveMemberInput,
+  type RevokeInvitationInput,
 } from "@notion-clone/contracts";
 import { ConflictError, ForbiddenError, ValidationError, newToken } from "@notion-clone/shared";
 import { createHash } from "node:crypto";
@@ -72,6 +74,12 @@ export async function inviteMember(actorUserId: string, raw: InviteMemberInput) 
       },
     })
     .returning();
+  if (!invitation) throw new Error("Failed to create invitation.");
+
+  // Phase 1: no transactional email provider is wired up yet (see docs/PRODUCT_SPEC.md
+  // Open Questions) — same pattern as password-reset. Logging server-side lets local
+  // development exercise the full invite → accept flow.
+  console.info(`[invite] token for ${input.email} to join workspace ${input.workspaceId}: ${token}`);
 
   return { invitation, token };
 }
@@ -168,4 +176,23 @@ export async function removeMember(actorUserId: string, raw: RemoveMemberInput) 
   }
 
   await db.delete(workspaceMembers).where(eq(workspaceMembers.id, input.memberId));
+}
+
+export async function revokeInvitation(actorUserId: string, raw: RevokeInvitationInput) {
+  const input = revokeInvitationSchema.parse(raw);
+  await assertWorkspaceCapability(actorUserId, input.workspaceId, "manageMembers");
+
+  const [invitation] = await db
+    .select()
+    .from(workspaceInvitations)
+    .where(eq(workspaceInvitations.id, input.invitationId))
+    .limit(1);
+  if (!invitation || invitation.workspaceId !== input.workspaceId) {
+    throw new ValidationError("Invitation not found in this workspace.");
+  }
+
+  await db
+    .update(workspaceInvitations)
+    .set({ revokedAt: new Date() })
+    .where(eq(workspaceInvitations.id, input.invitationId));
 }

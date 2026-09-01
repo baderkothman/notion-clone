@@ -1,5 +1,15 @@
 import "server-only";
-import { db, workspaces, workspaceMembers, users, eq, and, desc } from "@notion-clone/database";
+import {
+  db,
+  workspaces,
+  workspaceMembers,
+  workspaceInvitations,
+  users,
+  eq,
+  and,
+  isNull,
+  desc,
+} from "@notion-clone/database";
 
 /** Workspaces the user belongs to, most recently created first. Powers the workspace
  * switcher — never queries `workspaces` without joining through `workspaceMembers`, so a
@@ -54,4 +64,26 @@ export async function listWorkspaceMembers(workspaceId: string) {
     .innerJoin(users, eq(users.id, workspaceMembers.userId))
     .where(eq(workspaceMembers.workspaceId, workspaceId))
     .orderBy(desc(workspaceMembers.createdAt));
+}
+
+/** Outstanding (not yet accepted, not revoked, not expired) invitations — shown
+ * alongside members so an admin can see who's been asked but hasn't joined yet. */
+export async function listPendingInvitations(workspaceId: string) {
+  return db
+    .select({
+      id: workspaceInvitations.id,
+      email: workspaceInvitations.email,
+      role: workspaceInvitations.role,
+      expiresAt: workspaceInvitations.expiresAt,
+      createdAt: workspaceInvitations.createdAt,
+    })
+    .from(workspaceInvitations)
+    .where(
+      and(
+        eq(workspaceInvitations.workspaceId, workspaceId),
+        isNull(workspaceInvitations.acceptedAt),
+        isNull(workspaceInvitations.revokedAt),
+      ),
+    )
+    .orderBy(desc(workspaceInvitations.createdAt));
 }
