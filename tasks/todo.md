@@ -207,6 +207,70 @@ begin with because they were scoped as partial from the start.
       so local dev works either way. Unit-tested templates (2 tests); e2e suite already
       exercises the invite path end to end.
 
+## Phase 2 — Differentiation: Calendar + Google Calendar sync + marketing site
+
+Status as of this session. See `docs/NOTION_PARITY.md`'s "Phase 2: Differentiation"
+table for the itemized feature list and `docs/ARCHITECTURE.md`'s "Calendar & Google
+Calendar sync" for the architecture.
+
+- [x] `calendar_events` + `google_calendar_connections` schema, two migrations
+      (`0001_fearless_steve_rogers.sql`, `0002_goofy_penance.sql`), applied.
+- [x] `packages/shared`: `encryptSecret`/`decryptSecret` (AES-256-GCM, 13 unit tests
+      total incl. `crypto.test.ts`), `frequencyToRRule`/`rruleToFrequency` (5 unit
+      tests, `recurrence.test.ts`).
+- [x] `packages/contracts/src/calendar.ts`: create/update/delete/list event schemas,
+      `selectGoogleCalendarSchema`, `GOOGLE_OAUTH_SCOPES`. Uses `z.date()` (not
+      `z.string().datetime().pipe(z.coerce.date())`) deliberately — see the file's doc
+      comment on why a `.pipe()` transform would split the exported input/output types
+      in a way that mismatches what callers construct.
+- [x] `ROLE_CAPABILITIES.useCalendar` (owner/admin/member: true, guest: false) — the
+      single source of truth both the calendar page and the sidebar nav item check.
+- [x] `apps/web/src/server/integrations/google-calendar/`: OAuth client, signed-state
+      CSRF, connect/disconnect, token refresh-and-repersist, incremental pull sync
+      (`syncToken`, 410-triggers-full-resync), local→Google push (create/update/delete,
+      best-effort, never blocks the local write).
+- [x] `apps/web/src/server/calendar/`: event CRUD domain functions, range-query
+      listing. Workspace-scoped authorization via `useCalendar`, not per-event.
+- [x] Routes: `/api/integrations/google/{authorize,callback}` (real GET handlers, not
+      server actions — a top-level navigation to Google's consent screen can't happen
+      from a fetch-based action). `/w/[slug]/settings/integrations` (connect/disconnect/
+      sync-now/calendar-picker UI). `/w/[slug]/calendar` (Month/Week/Day/Agenda views,
+      create/edit/delete dialog, drag-to-reschedule in Month view).
+- [x] Sidebar: persistent "Calendar" nav item (top-level billing, not buried in Pages),
+      hidden for guests.
+- [x] **Found and fixed two real bugs while building this**: (1) the `next/font`
+      CSS-variable scoping bug from the landing-page pass earlier this session (see
+      that section) doesn't apply here, but a *related* bundling bug did — the first
+      version of `event-dialog.tsx` (a client component) imported `rruleToFrequency`
+      from `@notion-clone/shared`, whose barrel (`index.ts`) also re-exports
+      `ids.ts`/`crypto.ts`, both of which import `node:crypto` — webpack can't bundle
+      that into client code at all (`next build` failed with `UnhandledSchemeError`).
+      Fixed by duplicating the ~8-line pure function locally in the client file rather
+      than importing the package (documented in that file). (2) The Zod schema's
+      exported "Input" types (`z.infer`) reflected the *parsed* (`Date`) shape, not what
+      a client actually needs to *construct and pass in* — caught via `tsc`, not at
+      runtime, before it shipped; fixed by using `z.date()` directly (see the contracts
+      file's doc comment) instead of a string-to-Date `.pipe()` transform.
+- [x] Verified: `pnpm typecheck` (8/8 packages), `pnpm lint` (clean), `pnpm -r test`
+      (75/75 unit tests, up from 46 at the start of this session), `pnpm --filter web
+      build` (clean; new routes: `/api/integrations/google/{authorize,callback}` ~131B
+      each, `/w/[slug]/calendar` 8.34kB, `/w/[slug]/settings/integrations` 5.16kB).
+- [ ] Not done: integration/e2e tests for the Google OAuth flow itself (needs a real or
+      mocked Google account — no live Google test credentials exist in this
+      environment) and for the calendar domain functions against real Postgres (the
+      pure logic — date-range math, recurrence mapping, crypto round-trip — is
+      unit-tested; the DB-touching domain functions follow the same patterns as
+      `pages`/`comments`/etc. but don't yet have their own `.int.test.ts`). Manual
+      verification of the connect→sync→disconnect flow against a real Google account
+      also hasn't been done — needs real `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (see
+      `.env.example`), which don't exist in this environment either.
+- [ ] Not done: pixel-accurate hour-by-hour time grid for Week/Day (shipped as
+      day-grouped mini-agendas instead — a documented, deliberate scope cut, not an
+      oversight; see `docs/ARCHITECTURE.md`).
+- [ ] Not done: a broader app-wide UX/onboarding audit beyond the calendar feature
+      itself and the new public marketing site — see the session's final report for
+      exactly what was and wasn't reached.
+
 ## Notes for whoever continues this
 
 - Read `docs/DEVELOPMENT.md`'s NODE_ENV warning before running `next build` manually —
@@ -215,3 +279,8 @@ begin with because they were scoped as partial from the start.
   `docker-compose.yml`).
 - The permission-resolution core (`resolve-core.ts`) is pure and unit-tested; extend its
   tests before extending its logic.
+- A client component must never import `@notion-clone/shared`'s barrel — `ids.ts` and
+  `crypto.ts` both pull in `node:crypto`, which breaks the webpack client build. Import
+  a specific pure submodule path if one exists, or duplicate the small pure function
+  locally (see `event-dialog.tsx`'s `rruleToFrequency` for the precedent) — don't
+  discover this the hard way again.

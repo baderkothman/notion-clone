@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Settings, Users } from "lucide-react";
+import { Settings, Users, Plug } from "lucide-react";
 import { cn } from "@notion-clone/ui";
 
 export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
@@ -10,6 +10,7 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
   const items = [
     { href: `/w/${workspaceSlug}/settings`, label: "General", icon: Settings, exact: true },
     { href: `/w/${workspaceSlug}/settings/members`, label: "Members", icon: Users, exact: false },
+    { href: `/w/${workspaceSlug}/settings/integrations`, label: "Integrations", icon: Plug, exact: false },
   ];
 
   return (

@@ -1,18 +1,42 @@
-# Product Spec: Notion Clone — Phase 1
+# Product Spec: Notion Clone — Phase 1 + Phase 2 (Calendar)
 
 ## Objective
 
-Build a production-quality, multi-tenant Notion clone: workspaces, nested pages, a real
-block editor, real-time collaboration, comments, search, Notion-style databases, secure
-file handling, sharing/permissions, and page history. This is the foundation phase only —
-no differentiating features beyond Notion parity. See "Future Product Extensions" at the
-end of `docs/ARCHITECTURE.md` for the (intentionally empty) placeholder for phase 2.
+Phase 1 built a production-quality, multi-tenant Notion-*parity* foundation: workspaces,
+nested pages, a real block editor, real-time collaboration, comments, search,
+Notion-style databases, secure file handling, sharing/permissions, and page history —
+deliberately no differentiating features beyond Notion parity in that phase.
+
+Phase 2 (see "Calendar & Google Calendar sync" in `docs/ARCHITECTURE.md`) began the
+differentiation `docs/ARCHITECTURE.md` reserved a placeholder for: a first-class,
+workspace-level Calendar with two-way Google Calendar sync. It exists because Notion
+itself has no native calendar — a genuine, repeatedly-reported gap, not a made-up
+feature — and because a workspace that already owns its data (self-hosted) is a natural
+fit for owning its own calendar too rather than living in a separate tool.
 
 Users: knowledge workers organized into workspaces (teams), each with owners/admins/
 members/guests. Success = a user can sign up, create a workspace, build a nested page
 tree with a genuinely usable block editor, collaborate live with a teammate, share pages
-with fine-grained permissions, search their content, and trust that another workspace can
-never see their data.
+with fine-grained permissions, search their content, trust that another workspace can
+never see their data, and — as of Phase 2 — manage their team's schedule in the same
+workspace instead of context-switching to a separate calendar app.
+
+## Positioning
+
+This product is **not** trying to be Notion feature-for-feature, and the differences are
+deliberate rather than incidental gaps:
+
+- **A calendar is a first-class citizen**, not absent (Notion) or bolted on as one more
+  database view. See `/w/[slug]/calendar` and its sidebar entry, given top-level billing
+  next to Pages rather than buried in a page tree.
+- **Self-hosted by default**: the workspace's data — including calendar events and
+  Google OAuth tokens — lives in infrastructure the operator controls (see the public
+  landing page's "own the stack" framing), not a vendor's servers.
+- **Google Calendar sync, not a Notion-style embedded iframe**: a real two-way sync with
+  incremental updates, not a read-only embed of an external calendar.
+- Everything else Phase 1 built (blocks, nested pages, databases, sharing) stays
+  Notion-familiar on purpose — the goal is a workspace a Notion user already knows how
+  to use, that also does the one big thing Notion doesn't.
 
 ## Tech Stack
 
@@ -122,9 +146,18 @@ list for Phase 1. `docs/NOTION_PARITY.md` tracks feature-by-feature implementati
 
 ## Open Questions / Assumptions Log
 
-- Auth: email/password via Credentials provider (no OAuth providers in phase 1 — can be
-  added later without touching domain logic, since `packages/auth` isolates the strategy).
+- Auth: email/password via Credentials provider — still true as of Phase 2. Google OAuth
+  was added in Phase 2, but as a *separate, workspace-scoped integration* (Settings →
+  Integrations, its own `google_calendar_connections` table), not as a sign-in provider
+  — `packages/auth`'s Credentials-only, JWT-session strategy is unchanged; see
+  `docs/adr/0002-auth-strategy.md`.
 - Redis: not introduced until a concrete scaling need appears (realtime presence fan-out
-  across multiple server instances). Single-instance Hocuspocus is sufficient for phase 1.
+  across multiple server instances). Single-instance Hocuspocus is sufficient; Google
+  Calendar sync also doesn't need it — see `docs/ARCHITECTURE.md`'s calendar section for
+  why "Sync now" + sync-on-connect doesn't require a job queue.
 - Calendar database view: included as "practical within this phase" per instructions;
-  simpler than full recurring-event support.
+  simpler than full recurring-event support. (Unrelated to Phase 2's workspace-level
+  Calendar — see `docs/ARCHITECTURE.md`'s doc comment distinguishing the two.)
+- Google Calendar push-channel (webhook) sync: deferred — needs a domain-verified public
+  HTTPS endpoint, an external requirement this environment can't stand up. Polling
+  ("Sync now" + sync-on-connect + Google's own incremental `syncToken`) is what ships.

@@ -21,9 +21,16 @@ users ──< workspace_members >── workspaces ──< workspace_invitations
   │                                          ├──< database_views
   │                                          └──< files
   ├──< password_reset_tokens
+  ├──< calendar_events (workspace calendar — see "Calendar & Google Calendar sync"
+  │                      in docs/ARCHITECTURE.md; NOT the database_views calendar type)
+  ├──< google_calendar_connections (one per user, scoped to one workspace — see below)
   └──< sessions / accounts / verification_tokens  (Auth.js schema shape, reserved for a
-                                                     future OAuth provider — see
-                                                     packages/auth/src/config.ts)
+                                                     future OAuth *login* provider — see
+                                                     packages/auth/src/config.ts; unrelated
+                                                     to google_calendar_connections, which
+                                                     is a separate, stricter-encrypted
+                                                     integration-token store, not a login
+                                                     mechanism)
 ```
 
 ## Key design decisions
@@ -68,14 +75,27 @@ job/cron needed — to one per hour beyond 24h and one per day beyond 30 days
 (`apps/web/src/server/history/prune-revisions.ts`; the bucketing decision itself is a
 pure, unit-tested function in `prune-revisions-core.ts`).
 
+**Calendar events are their own table, not database rows.** Unlike a Notion-style
+database (where "a row is a page" — see above), `calendar_events` doesn't reuse the
+`pages` machinery: an event has no block content, no page hierarchy, and needs a
+tight `(workspace_id, start_at, end_at)` range index a generic page table can't offer.
+`google_calendar_connections` is one row per user (unique on `user_id`) but carries its
+own `workspace_id` — a Google account is personal, but the connection itself is scoped
+to a single workspace to keep `(google_connection_id, google_event_id)` unambiguous; see
+`docs/ARCHITECTURE.md`'s "Calendar & Google Calendar sync" for the full reasoning and
+`docs/SECURITY.md` for how the OAuth tokens are stored.
+
 ## Indexing
 
 Every foreign key that's queried directly has a matching index:
 `pages(workspace_id, parent_id)`, `pages(workspace_id, is_archived)` (trash/sidebar
 queries), `page_shares(user_id)`, `comments(page_id, created_at)`,
-`page_revisions(page_id, created_at)`, `audit_events(workspace_id, created_at)`, and the
-GIN index on `search_documents.tsv`. See the migration
-(`packages/database/src/migrations/0000_slim_warstar.sql`) for the full list.
+`page_revisions(page_id, created_at)`, `audit_events(workspace_id, created_at)`,
+`calendar_events(workspace_id, start_at, end_at)` (the exact shape a month/week/agenda
+view's range query needs), `calendar_events(google_connection_id)`, and the GIN index on
+`search_documents.tsv`. See the migrations
+(`packages/database/src/migrations/0000_slim_warstar.sql`,
+`0001_fearless_steve_rogers.sql`, `0002_goofy_penance.sql`) for the full list.
 
 ## Transactions
 

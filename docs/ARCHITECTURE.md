@@ -121,8 +121,106 @@ landed (a HEAD request) with an allowed content type before the `files` row flip
 derived from the client-supplied filename. See `docs/SECURITY.md` for the full threat
 model.
 
-## Future Product Extensions
+## Calendar & Google Calendar sync (Phase 2)
 
-This document describes the Phase 1 Notion-clone foundation only. Additional
-differentiating features for the product will be scoped and documented in a future
-phase — none are included here by design.
+The first differentiating feature beyond Notion parity: a workspace-level Calendar
+(`/w/[slug]/calendar`) with its own first-class events, not the database-property
+"Calendar view" (`database_views.type = 'calendar'`, unrelated — a way to lay an
+*existing database's* rows onto a grid by a Date property). This is a deliberate product
+bet: hosted Notion has no native calendar at all — a real, recurring complaint (see
+`docs/PRODUCT_SPEC.md`'s "Positioning" note) — and it's a natural fit for a self-hosted
+workspace that already owns its own data.
+
+**Domain module**: `apps/web/src/server/calendar/` (events CRUD, workspace-scoped,
+authorized via `ROLE_CAPABILITIES.useCalendar` — guests are excluded, matching their
+existing page-scoped-only access model) plus
+`apps/web/src/server/integrations/google-calendar/` (OAuth connect/disconnect, token
+refresh, pull-sync, push-sync). Schema: `packages/database/src/schema/calendar.ts`
+(`calendar_events`, `google_calendar_connections`).
+
+**Google connection is scoped to one workspace, not just one user.** A Google account
+is personal, but a pulled event has to land in a specific workspace's calendar, and
+letting one connection feed multiple workspaces would make
+`(googleConnectionId, googleEventId)` ambiguous the moment the same connection synced
+from two workspaces. Connect from a workspace's Settings → Integrations; to use Google
+Calendar with a second workspace, disconnect and reconnect from there (moves the
+connection, since `userId` stays unique — see the schema's doc comment).
+
+**OAuth flow** (`apps/web/src/app/api/integrations/google/{authorize,callback}/`):
+real GET route handlers, not server actions — a top-level browser navigation to
+Google's consent screen can't happen from a fetch-based action. `state` is a signed,
+5-minute JWT (reusing `AUTH_SECRET`) binding `{userId, workspaceId}`, verified on
+callback as CSRF protection and as the only source of which workspace the connection
+belongs to (never trusted from a callback query param). `access_type: "offline"` +
+`prompt: "consent"` are both required to actually receive a `refresh_token` on every
+connect, including a reconnect after a revoke.
+
+**Token storage**: AES-256-GCM-encrypted (`packages/shared/src/crypto.ts`,
+`GOOGLE_TOKEN_ENCRYPTION_KEY` — a separate secret from `AUTH_SECRET` so rotating one
+never touches the other), deliberately not using the Auth.js adapter's `accounts` table
+(`schema/identity.ts`), which stores provider tokens in plaintext per the standard
+adapter contract. `getAuthorizedClient()` (`google-calendar/client.ts`) refreshes and
+re-persists the access token transparently before every API call; a refresh failure
+(revoked grant) flips the connection to `status: "revoked"` with a user-facing message
+instead of failing silently on every subsequent sync.
+
+**Sync model** — one-directional per call, which is what keeps it loop-free:
+
+- *Pull* (`google-calendar/sync.ts`): Google → `calendar_events` only, never triggers a
+  push back. First sync pulls a ±30/180-day window; every sync after that uses Google's
+  `syncToken` for a real incremental pull (only what changed), falling back to a full
+  resync if Google returns 410 (an expired/invalidated token — Google's own documented
+  behavior after a period of inactivity). Recurring events are pulled pre-expanded
+  (`singleEvents: true`) rather than parsed from RRULEs ourselves. Upsert is keyed on
+  `(googleConnectionId, googleEventId)` (a unique DB constraint), making a re-run of the
+  same sync pass idempotent — the concrete "duplicate prevention" mechanism. A
+  cancelled/deleted Google event becomes a local soft-delete (`deletedAt`), consistent
+  with how the rest of the app treats deletion (pages' trash).
+- *Push* (`google-calendar/push.ts`): local → Google only, and only from an explicit,
+  synchronous user action (create/edit/delete an event with a connection selected) —
+  never from a background job reacting to a pull. A push failure never fails the local
+  write; it's recorded on the row (`syncStatus: "error"`, `syncError`) and surfaced in
+  the UI, the same "local truth first, sync is best-effort" shape as autosave falling
+  back when realtime is unavailable (see above).
+- Sync is triggered by an explicit "Sync now" button and once inline right after
+  connecting — there's no background job/cron/webhook infrastructure in this phase (no
+  queue exists anywhere in this app; see `docs/PRODUCT_SPEC.md`'s Redis decision for the
+  same reasoning). A real-time push-channel (Google Calendar's webhook subscriptions)
+  needs a publicly reachable, domain-verified HTTPS endpoint — an external launch
+  requirement, not something buildable/testable in this environment — and is the
+  natural next increment once a deployment has one.
+
+**Timezones/all-day/recurrence**: `startAt`/`endAt` are stored as `timestamptz` (always
+UTC internally) plus a separate `timezone` (IANA name) field, mirroring Google's own
+`dateTime+timeZone` vs. `date`-only (`allDay`) shapes so neither direction of sync is
+lossy. Recurrence editing in this app's own UI is a bounded preset list (none/daily/
+weekly/monthly, see `packages/contracts/src/calendar.ts`'s doc comment) resolved to a
+real RFC 5545 `RRULE` string server-side — not a general recurrence-rule builder; a
+documented scope cut, the same precedent as the database "person" property being
+single-assignee-only (`docs/NOTION_PARITY.md`).
+
+## Omniroute — evaluated and rejected
+
+The task that produced this phase asked for an AI/model-routing library called
+"Omniroute" to be integrated if it fit. It was researched, not integrated:
+
+1. **No AI/LLM functionality exists anywhere in this codebase** (verified by grep —
+   nothing references OpenAI/Anthropic/any model API). Introducing an AI provider
+   gateway with nothing to gateway would be pure speculative infrastructure, directly
+   against this project's own documented discipline (`docs/IMPROVEMENT_PLAN.md`'s
+   Karpathy-derived principle: no abstraction the app doesn't need yet).
+2. **The name doesn't resolve to one verifiable project.** It matches several distinct,
+   near-identical repositories under unrelated GitHub accounts
+   (`diegosouzapw/OmniRoute`, `pitbaden/omniroute`, `BunsDev/omniroute`) sharing
+   verbatim descriptions, plus a differently-named `omnilabs-ai/OmniRouter` and a
+   commercial site. Identical descriptions copy-pasted across unrelated forks with
+   implausibly high star counts for an obscure tool is a recognizable supply-chain red
+   flag, not a naming coincidence to shrug off.
+3. Even setting aside (2), what's described (a local proxy process that intercepts and
+   stores API keys) is a new runtime/process, not a library import — exactly the "new
+   top-level dependency category" `docs/PRODUCT_SPEC.md`'s Boundaries says to ask about
+   first, for a feature this app doesn't have a use for yet.
+
+If/when this product grows an actual AI feature, evaluate a model-routing layer against
+that feature's real requirements at that time, from a specific, verifiably-owned
+repository — not speculatively.

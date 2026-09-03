@@ -59,8 +59,20 @@ test.describe("core flow", () => {
   });
 
   test("unauthenticated visitors are redirected to sign-in", async ({ page }) => {
-    await page.goto("/");
+    // `/` itself is now the public marketing landing page (see middleware.ts's
+    // PUBLIC_PATHS and app/page.tsx) — an unauthenticated visitor is meant to see it,
+    // not get redirected. `/onboarding` is a real protected route (requireUserId()
+    // in its page component, not in PUBLIC_PATHS) and is exactly the kind of URL this
+    // test exists to guard: a signed-out visitor who lands on any protected page
+    // still gets sent to sign-in first.
+    await page.goto("/onboarding");
     await expect(page).toHaveURL(/\/sign-in/);
+  });
+
+  test("the public landing page is visible to signed-out visitors", async ({ page }) => {
+    await page.goto("/");
+    await expect(page).toHaveURL("/");
+    await expect(page.getByRole("heading", { name: /your workspace/i })).toBeVisible();
   });
 
   test("a failed sign-in does not clear the form", async ({ page }) => {

@@ -185,3 +185,24 @@ and confirm the row lands in the right column.
 | Reduced-motion support | ✅ `prefers-reduced-motion` media query in `globals.css` (forces all CSS transition/animation durations to ~0) plus explicit `useReducedMotion()` checks on the handful of JS-driven `motion` animations (sidebar drag lift, comments panel open/close), which the CSS rule alone can't reach |
 | Purposeful micro-interactions | ✅ toggle-block expand/collapse (CSS-only, no JS animation library on the hot editor path), sidebar drag lift/settle feedback, comments panel open/close — kept deliberately small in number; see `docs/IMPROVEMENT_PLAN.md` Phase 10 for what was investigated and *not* added (the mobile drawer's existing CSS transition, the command menu's existing transitions) because they already worked and rewriting them would have added nothing |
 | Full WCAG 2.2 AA audit | 🟡 built with accessible primitives throughout; automated axe-core sweep (`e2e/accessibility.spec.ts`) covers the auth forms, workspace shell, page editor, a database table, and settings — zero violations, and it caught/fixed a real bug (see `docs/TESTING.md`). This is coverage of what axe can detect automatically, not a substitute for a full manual WCAG 2.2 AA audit (screen-reader walkthroughs, keyboard-only flows end to end, etc.), which hasn't been done |
+
+## Phase 2: Differentiation beyond Notion parity
+
+Not tracked against "what does Notion have" — these are new, not Notion features. See
+`docs/ARCHITECTURE.md`'s "Calendar & Google Calendar sync" for the architecture and
+`docs/PRODUCT_SPEC.md`'s "Positioning" for why.
+
+| Feature | Status |
+|---|---|
+| Workspace-level Calendar (`/w/[slug]/calendar`), top-level sidebar nav | ✅ |
+| Month / Week / Day / Agenda views | ✅ Month and Week are day-grouped grids, not a pixel-accurate hour-by-hour time grid — a documented scope cut, see `docs/ARCHITECTURE.md` |
+| Create / edit / delete events | ✅ title, description, location, start/end, all-day, timezone (browser's own — no picker), attendees (email list), recurrence (none/daily/weekly/monthly preset) |
+| Drag-to-reschedule | ✅ Month view only (drag an event onto a different day cell; time-of-day and duration preserved), with optimistic UI + rollback on failure |
+| Google account connection (OAuth) | ✅ Settings → Integrations; minimal scopes, encrypted token storage, revoke-on-disconnect — see `docs/SECURITY.md` |
+| Google Calendar picker | ✅ choose which of the connected account's calendars to sync |
+| Two-way sync | ✅ pull: incremental via Google's `syncToken`, full-resync fallback on 410; push: on local create/edit/delete, best-effort (never blocks the local write) |
+| Recurring events (pulled from Google) | ✅ pre-expanded via `singleEvents: true`, not RRULE-parsed locally |
+| All-day events | ✅ both directions |
+| Sync status feedback | ✅ per-event (synced/local/error badge), connection-level (connected/error/revoked + last-synced time), toasts on sync/save/delete |
+| Real-time push (webhook) sync | ⬜ needs a domain-verified public HTTPS endpoint — an external deployment requirement, not implemented; polling ("Sync now" + sync-on-connect) ships instead |
+| Public marketing site (landing + About) | ✅ `/` (signed-out) and `/about` |

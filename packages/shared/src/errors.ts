@@ -48,3 +48,14 @@ export class RateLimitedError extends DomainError {
     super(message, "RATE_LIMITED");
   }
 }
+
+/** A third-party integration (Google Calendar, etc.) refused a request, was
+ * unreachable, or the stored connection is no longer valid (revoked/expired refresh
+ * token). Kept distinct from ValidationError/ForbiddenError so callers can show
+ * "reconnect your Google account" rather than a generic error — see
+ * apps/web/src/server/integrations/google-calendar. */
+export class ExternalServiceError extends DomainError {
+  constructor(message = "The connected service didn't respond as expected.") {
+    super(message, "EXTERNAL_SERVICE_ERROR");
+  }
+}

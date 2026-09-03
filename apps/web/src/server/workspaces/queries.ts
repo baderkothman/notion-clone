@@ -49,6 +49,16 @@ export async function getWorkspaceBySlugForUser(userId: string, slug: string) {
   return row ?? null;
 }
 
+/** Used only where a caller already has a trusted `workspaceId` (e.g. verified out of a
+ * signed OAuth state token — see server/integrations/google-calendar/state.ts) and
+ * needs the slug to build a redirect URL. Not a membership check itself — callers that
+ * need authorization call `assertWorkspaceMembership`/`assertWorkspaceCapability`
+ * separately; this is purely a slug lookup. */
+export async function getWorkspaceSlugById(workspaceId: string): Promise<string | null> {
+  const [row] = await db.select({ slug: workspaces.slug }).from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1);
+  return row?.slug ?? null;
+}
+
 export async function listWorkspaceMembers(workspaceId: string) {
   return db
     .select({

@@ -8,6 +8,20 @@
       "when": 1788276168948,
       "tag": "0000_slim_warstar",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788446080517,
+      "tag": "0001_fearless_steve_rogers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788446330339,
+      "tag": "0002_goofy_penance",
+      "breakpoints": true
     }
   ]
 }

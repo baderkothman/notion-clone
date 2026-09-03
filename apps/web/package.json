@@ -23,6 +23,7 @@
     "@notion-clone/shared": "workspace:*",
     "@notion-clone/ui": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.4",
+    "googleapis": "^178.0.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.469.0",
     "motion": "^13.2.0",

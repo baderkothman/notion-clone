@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@notion-clone/auth/edge";
 
-const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/invite"];
+const PUBLIC_PATHS = ["/sign-in", "/sign-up", "/forgot-password", "/reset-password", "/invite", "/about"];
 
 function buildCsp(nonce: string, isProd: boolean): string {
   // Uploads PUT directly from the browser to the S3-compatible endpoint (presigned
@@ -37,6 +37,7 @@ function buildCsp(nonce: string, isProd: boolean): string {
 export default auth((req: NextRequest & { auth: unknown }) => {
   const { pathname } = req.nextUrl;
   const isPublic =
+    pathname === "/" ||
     PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/share/");

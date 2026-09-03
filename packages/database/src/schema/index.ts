@@ -9,4 +9,5 @@ export * from "./files";
 export * from "./history";
 export * from "./audit";
 export * from "./search";
+export * from "./calendar";
 export * from "./relations";

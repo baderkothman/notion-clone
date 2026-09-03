@@ -9,7 +9,7 @@ export default async function SignInPage({
   const params = await searchParams;
   return (
     <div className="rounded-lg border border-border bg-surface-raised p-6 shadow-[var(--color-shadow)]">
-      <h1 className="text-lg font-semibold text-text">Sign in</h1>
+      <h1 className="font-display text-lg font-semibold text-text">Sign in</h1>
       <p className="mt-1 text-sm text-text-muted">Welcome back. Enter your details to continue.</p>
       {params.reset ? (
         <p className="mt-4 rounded-md bg-selected px-3 py-2 text-sm text-text">

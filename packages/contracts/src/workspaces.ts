@@ -61,6 +61,7 @@ export const ROLE_CAPABILITIES = {
     manageBilling: true,
     createPages: true,
     deleteWorkspace: true,
+    useCalendar: true,
   },
   admin: {
     manageWorkspace: true,
@@ -68,6 +69,7 @@ export const ROLE_CAPABILITIES = {
     manageBilling: false,
     createPages: true,
     deleteWorkspace: false,
+    useCalendar: true,
   },
   member: {
     manageWorkspace: false,
@@ -75,12 +77,17 @@ export const ROLE_CAPABILITIES = {
     manageBilling: false,
     createPages: true,
     deleteWorkspace: false,
+    useCalendar: true,
   },
+  // Guests are scoped to the specific pages shared with them (see docs/SECURITY.md) —
+  // the workspace calendar is a workspace-wide surface, so guests don't get it, the
+  // same reasoning that already excludes them from createPages.
   guest: {
     manageWorkspace: false,
     manageMembers: false,
     manageBilling: false,
     createPages: false,
     deleteWorkspace: false,
+    useCalendar: false,
   },
 } as const satisfies Record<WorkspaceRole, Record<string, boolean>>;

@@ -95,6 +95,41 @@ sign-in (10/5min per email), sign-up (5/10min per email), password-reset request
 user). Explicitly scoped to a single-instance deployment for phase 1 — see
 `docs/PRODUCT_SPEC.md`'s Redis decision for when to swap this for a shared store.
 
+## Google Calendar integration
+
+- **Not the app's own auth.** The Google OAuth connect flow (Settings → Integrations)
+  is entirely separate from sign-in — it never touches `packages/auth`, the JWT session
+  strategy, or the Auth.js `accounts` table. It's an integration-token grant for one
+  external API, not a login method; see `docs/ARCHITECTURE.md`'s "Calendar & Google
+  Calendar sync" for the full flow.
+- **Scopes are minimal**: `calendar.events` (read/write events only) and
+  `calendar.calendarlist.readonly` (list calendars for the picker) —
+  not the broader `calendar` scope, which also permits creating/deleting calendars
+  themselves. `userinfo.email` only to label the connection in Settings.
+- **Token storage**: access/refresh tokens are AES-256-GCM-encrypted
+  (`packages/shared/src/crypto.ts`) before being written to
+  `google_calendar_connections`, keyed by `GOOGLE_TOKEN_ENCRYPTION_KEY` — a dedicated
+  secret, not `AUTH_SECRET`, so one can be rotated without touching the other. This is a
+  deliberately stricter bar than the Auth.js adapter's own `accounts` table shape
+  (`schema/identity.ts`), which stores provider tokens in plaintext per its standard
+  contract and is unused by this integration.
+- **CSRF on the OAuth callback**: the `state` parameter is a signed, 5-minute JWT
+  (`google-calendar/state.ts`) binding `{userId, workspaceId}` — the callback route
+  verifies it before exchanging the authorization code for tokens, and the workspace a
+  connection is attached to is read *only* from this signed value, never from a
+  client-suppliable query parameter.
+- **Revocation**: disconnecting calls Google's own token-revoke endpoint (best-effort —
+  a network failure there still removes our local record, so the user isn't stuck
+  "connected" to a broken integration) in addition to deleting the connection row.
+- **A refresh-token failure (revoked/expired grant)** flips the connection to
+  `status: "revoked"` with a stored, user-facing error message, surfaced in Settings —
+  it does not fail silently on every subsequent sync attempt.
+- **Least-privilege by design, not just by scope**: `assertWorkspaceCapability(...,
+  "useCalendar")` gates every calendar domain function the same way every other
+  workspace-scoped feature is gated (see "Authorization model" above) — a guest account
+  (page-scoped access only) can't reach the workspace calendar or its Google connection
+  at all, by the same mechanism that already excludes guests from `createPages`.
+
 ## File uploads
 
 - Presigned S3 PUT URLs; the browser never sends file bytes through the Next.js server.
@@ -207,3 +242,8 @@ requiring a disproportionately large fix relative to the risk):
 - A dedicated security-headers/dependency scan in CI — not set up in this pass (no CI
   pipeline exists yet at all; see `docs/TESTING.md`).
 - The SSRF DNS-rebinding TOCTOU gap noted above.
+- Google Calendar push-channel (webhook) subscriptions for near-real-time sync — needs a
+  publicly reachable, domain-verified HTTPS endpoint Google can call, which isn't
+  something this environment can stand up or test; see `docs/ARCHITECTURE.md`'s
+  "Calendar & Google Calendar sync". The current "Sync now" + sync-on-connect model has
+  no such requirement and is what's actually shipped.

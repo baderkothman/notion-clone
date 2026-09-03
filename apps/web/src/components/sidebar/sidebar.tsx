@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Database, FileText, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, Database, FileText, Plus, Trash2 } from "lucide-react";
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@notion-clone/ui";
-import type { PageTreeNode } from "@notion-clone/contracts";
+import { ROLE_CAPABILITIES, type PageTreeNode, type WorkspaceRole } from "@notion-clone/contracts";
 import { WorkspaceSwitcher, type WorkspaceSummary } from "./workspace-switcher";
 import { PageTree } from "./page-tree";
 import { FavoritesList, type FavoriteItem } from "./favorites-list";
@@ -34,6 +34,10 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const isTrashActive = pathname === `/w/${currentWorkspace.slug}/trash`;
+  const isCalendarActive = pathname === `/w/${currentWorkspace.slug}/calendar`;
+  // Guests are scoped to specific shared pages, not the workspace-wide calendar — see
+  // ROLE_CAPABILITIES's `useCalendar` doc comment in packages/contracts/src/workspaces.ts.
+  const canUseCalendar = ROLE_CAPABILITIES[currentWorkspace.role as WorkspaceRole]?.useCalendar ?? false;
 
   async function handleNewPage() {
     const result = await createPageAction({ workspaceId: currentWorkspace.id });
@@ -57,6 +61,21 @@ export function Sidebar({
       <div className="flex flex-col gap-2 p-2">
         <WorkspaceSwitcher current={currentWorkspace} workspaces={workspaces} />
         <CommandMenu workspaceId={currentWorkspace.id} workspaceSlug={currentWorkspace.slug} />
+        {/* Persistent top-level nav item, not buried under Pages — Notion has no
+            native calendar at all (a real, recurring complaint); making this a
+            first-class destination rather than one more page in the tree is the point. */}
+        {canUseCalendar ? (
+          <Link
+            href={`/w/${currentWorkspace.slug}/calendar`}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm",
+              isCalendarActive ? "bg-selected text-text" : "text-text-muted hover:bg-hover hover:text-text",
+            )}
+          >
+            <CalendarDays className="size-3.5" />
+            Calendar
+          </Link>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2">
