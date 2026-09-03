@@ -1,0 +1,9 @@
+echo ""
+echo "▶ react-doctor: checking what this push introduces (scope: changed)…"
+node scripts/react-doctor-fix-prompt.mjs --scope changed --summary || true
+echo "  (skip this check on a single push with: git push --no-verify)"
+echo ""
+
+# Always exits 0 — this is informational (a fix prompt waiting for you, not a gate).
+# CI (.github/workflows/ci.yml) is what actually enforces typecheck/lint/tests.
+exit 0

@@ -19,11 +19,14 @@
     "db:generate": "pnpm --filter @notion-clone/database db:generate",
     "db:studio": "pnpm --filter @notion-clone/database db:studio",
     "db:seed": "pnpm --filter @notion-clone/database db:seed",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "doctor:prompt": "node scripts/react-doctor-fix-prompt.mjs",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
+    "husky": "^9.1.7",
     "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
     "typescript": "^5.7.3"
   }
 }
