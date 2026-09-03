@@ -4,12 +4,29 @@ import {
   createPropertySchema,
   updatePropertySchema,
   deletePropertySchema,
+  DEFAULT_STATUS_OPTION_NAMES,
+  STATUS_CATEGORY_META,
   type CreatePropertyInput,
   type UpdatePropertyInput,
   type DeletePropertyInput,
+  type SelectOption,
 } from "@notion-clone/contracts";
-import { ValidationError } from "@notion-clone/shared";
+import { ValidationError, newId } from "@notion-clone/shared";
 import { assertPagePermission } from "../permissions/assert";
+
+/** A fresh `status` property starts as an immediately-usable 3-stage workflow (see
+ * `DEFAULT_STATUS_OPTION_NAMES`'s doc comment) instead of the empty option list a
+ * plain `select`/`multi_select` starts with — a Board grouped by it is a real kanban
+ * from the moment it's created, not a blank column-less grid the user has to
+ * configure first. */
+export function defaultStatusOptions(): SelectOption[] {
+  return DEFAULT_STATUS_OPTION_NAMES.map(({ name, category }) => ({
+    id: newId(),
+    name,
+    color: STATUS_CATEGORY_META[category].color,
+    category,
+  }));
+}
 
 async function assertIsDatabase(userId: string, databasePageId: string, minimum: "view" | "edit") {
   await assertPagePermission(userId, databasePageId, minimum);
@@ -44,7 +61,12 @@ export async function createProperty(userId: string, raw: CreatePropertyInput) {
       name: input.name,
       type: input.type,
       position: (last?.position ?? -1) + 1,
-      config: input.type === "select" || input.type === "multi_select" || input.type === "status" ? { options: [] } : {},
+      config:
+        input.type === "status"
+          ? { options: defaultStatusOptions() }
+          : input.type === "select" || input.type === "multi_select"
+            ? { options: [] }
+            : {},
     })
     .returning();
   return property;

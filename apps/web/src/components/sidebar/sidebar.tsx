@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarDays, Database, FileText, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, Database, FileText, ListChecks, MessagesSquare, Plus, Trash2 } from "lucide-react";
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@notion-clone/ui";
 import { ROLE_CAPABILITIES, type PageTreeNode, type WorkspaceRole } from "@notion-clone/contracts";
 import { WorkspaceSwitcher, type WorkspaceSummary } from "./workspace-switcher";
@@ -12,7 +12,7 @@ import { FavoritesList, type FavoriteItem } from "./favorites-list";
 import { SidebarFooter } from "./sidebar-footer";
 import { CommandMenu } from "@/components/search/command-menu";
 import { createPageAction } from "@/app/(app)/actions/pages";
-import { createDatabaseAction } from "@/app/(app)/actions/databases";
+import { createDatabaseAction, createTaskListAction } from "@/app/(app)/actions/databases";
 
 export function Sidebar({
   currentWorkspace,
@@ -35,9 +35,12 @@ export function Sidebar({
   const router = useRouter();
   const isTrashActive = pathname === `/w/${currentWorkspace.slug}/trash`;
   const isCalendarActive = pathname === `/w/${currentWorkspace.slug}/calendar`;
-  // Guests are scoped to specific shared pages, not the workspace-wide calendar — see
-  // ROLE_CAPABILITIES's `useCalendar` doc comment in packages/contracts/src/workspaces.ts.
+  const isChatActive = pathname.startsWith(`/w/${currentWorkspace.slug}/chat`);
+  // Guests are scoped to specific shared pages, not the workspace-wide calendar/chat —
+  // see ROLE_CAPABILITIES's `useCalendar`/`useChat` doc comments in
+  // packages/contracts/src/workspaces.ts.
   const canUseCalendar = ROLE_CAPABILITIES[currentWorkspace.role as WorkspaceRole]?.useCalendar ?? false;
+  const canUseChat = ROLE_CAPABILITIES[currentWorkspace.role as WorkspaceRole]?.useChat ?? false;
 
   async function handleNewPage() {
     const result = await createPageAction({ workspaceId: currentWorkspace.id });
@@ -48,6 +51,13 @@ export function Sidebar({
 
   async function handleNewDatabase() {
     const result = await createDatabaseAction({ workspaceId: currentWorkspace.id });
+    if (!result.ok) return toast.error(result.error);
+    onPageCreated();
+    router.push(`/w/${currentWorkspace.slug}/p/${result.value.id}`);
+  }
+
+  async function handleNewTaskList() {
+    const result = await createTaskListAction({ workspaceId: currentWorkspace.id });
     if (!result.ok) return toast.error(result.error);
     onPageCreated();
     router.push(`/w/${currentWorkspace.slug}/p/${result.value.id}`);
@@ -76,6 +86,18 @@ export function Sidebar({
             Calendar
           </Link>
         ) : null}
+        {canUseChat ? (
+          <Link
+            href={`/w/${currentWorkspace.slug}/chat`}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm",
+              isChatActive ? "bg-selected text-text" : "text-text-muted hover:bg-hover hover:text-text",
+            )}
+          >
+            <MessagesSquare className="size-3.5" />
+            Chat
+          </Link>
+        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2">
@@ -95,6 +117,9 @@ export function Sidebar({
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={handleNewDatabase}>
                 <Database className="size-3.5" /> Database
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleNewTaskList}>
+                <ListChecks className="size-3.5" /> Task list
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

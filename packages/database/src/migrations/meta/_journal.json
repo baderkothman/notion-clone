@@ -22,6 +22,13 @@
       "when": 1788446330339,
       "tag": "0002_goofy_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788452766957,
+      "tag": "0003_sparkling_spiral",
+      "breakpoints": true
     }
   ]
 }

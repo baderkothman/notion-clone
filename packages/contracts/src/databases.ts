@@ -16,12 +16,44 @@ export const propertyTypes = [
 export const propertyTypeSchema = z.enum(propertyTypes);
 export type PropertyType = z.infer<typeof propertyTypeSchema>;
 
+/** The three groups every real workflow status belongs to — Notion and ClickUp both
+ * converge on this exact set (however many stages a team defines in between, each one
+ * is still either "not started yet," "actively being worked," or "finished"). Board
+ * columns and the status picker both use this to group/order/color options beyond
+ * what a generic `select` gives you — see `defaultStatusOptions` below. */
+export const statusCategories = ["todo", "in_progress", "complete"] as const;
+export const statusCategorySchema = z.enum(statusCategories);
+export type StatusCategory = z.infer<typeof statusCategorySchema>;
+
+export const STATUS_CATEGORY_META: Record<StatusCategory, { label: string; color: string }> = {
+  todo: { label: "To do", color: "gray" },
+  in_progress: { label: "In progress", color: "blue" },
+  complete: { label: "Complete", color: "green" },
+};
+
 export const selectOptionSchema = z.object({
   id: z.string(),
   name: z.string().max(100),
   color: z.string().max(20),
+  /** Only meaningful for a `status`-type property's options — `select`/`multi_select`
+   * options leave this unset. Optional (not a separate schema) because every property
+   * type that offers "pick from a set of colored options" already shares one editor
+   * component (select-editor.tsx) and one cell renderer; a second near-identical type
+   * would just be the same shape with an extra required field. */
+  category: statusCategorySchema.optional(),
 });
 export type SelectOption = z.infer<typeof selectOptionSchema>;
+
+/** Seeded onto every new `status` property (see server/databases/properties.ts) — one
+ * stage per category, in category order, so a freshly created Status property is
+ * immediately a usable 3-column board without the user configuring anything first.
+ * IDs are assigned at creation time (`newId()`), not fixed here, so two properties'
+ * options never collide. */
+export const DEFAULT_STATUS_OPTION_NAMES: { name: string; category: StatusCategory }[] = [
+  { name: "Not started", category: "todo" },
+  { name: "In progress", category: "in_progress" },
+  { name: "Done", category: "complete" },
+];
 
 export const createPropertySchema = z.object({
   databasePageId: z.string().uuid(),

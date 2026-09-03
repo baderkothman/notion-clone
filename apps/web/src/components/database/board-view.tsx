@@ -2,11 +2,14 @@
 
 import * as React from "react";
 import { ExternalLink, File, Plus } from "lucide-react";
+import { cn } from "@notion-clone/ui";
 import type { SelectOption } from "@notion-clone/contracts";
 import type { DatabaseProperty, DatabaseRow } from "./types";
 import { selectOptions } from "./types";
 import { PropertyCell, type WorkspaceMemberOption } from "./property-cell";
 import { OptionPill } from "./select-editor";
+
+const BOARD_DRAG_MIME = "application/x-notion-clone-board-card";
 
 // Board cards don't support creating new select/status options inline (unlike the table's
 // property-header editor) — this stub keeps `PropertyCell` happy either way. Module
@@ -27,6 +30,10 @@ const BoardCard = React.memo(function BoardCard({
   onOpenRow,
   members,
   workspaceId,
+  draggable,
+  onCardDragStart,
+  onCardDragEnd,
+  isDragging,
 }: {
   row: DatabaseRow;
   cardProperties: DatabaseProperty[];
@@ -35,9 +42,26 @@ const BoardCard = React.memo(function BoardCard({
   onOpenRow: (rowId: string) => void;
   members: WorkspaceMemberOption[];
   workspaceId: string;
+  draggable: boolean;
+  onCardDragStart: (rowId: string) => void;
+  onCardDragEnd: () => void;
+  isDragging: boolean;
 }) {
   return (
-    <div className="group rounded-md border border-border bg-surface-raised p-2.5 hover:border-border-strong">
+    <div
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(BOARD_DRAG_MIME, row.id);
+        e.dataTransfer.effectAllowed = "move";
+        onCardDragStart(row.id);
+      }}
+      onDragEnd={onCardDragEnd}
+      className={cn(
+        "group rounded-md border border-border bg-surface-raised p-2.5 hover:border-border-strong",
+        draggable && "cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-50",
+      )}
+    >
       <div className="mb-1.5 flex items-center gap-1.5">
         <span className="shrink-0 text-text-faint">{row.icon ?? <File className="size-3.5" />}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-text">{row.title || "Untitled"}</span>
@@ -100,6 +124,11 @@ export function BoardView({
     () => properties.filter((p) => p.type !== "title" && p.id !== groupByPropertyId),
     [properties, groupByPropertyId],
   );
+  const [draggingRowId, setDraggingRowId] = React.useState<string | null>(null);
+  // `undefined` = not hovering any column right now; `null` is itself a real column id
+  // (the "No <property>" column, for rows that haven't set this property), so it can't
+  // double as the "nothing" sentinel the way it could for a simpler list.
+  const [dragOverColumnId, setDragOverColumnId] = React.useState<string | null | undefined>(undefined);
 
   if (!groupProperty) {
     return (
@@ -123,7 +152,37 @@ export function BoardView({
           return column.id === null ? !value : value === column.id;
         });
         return (
-          <div key={column.id ?? "none"} className="w-64 shrink-0">
+          <div
+            key={column.id ?? "none"}
+            className={cn(
+              "w-64 shrink-0 rounded-lg p-1 transition-colors",
+              editable && draggingRowId && dragOverColumnId === column.id ? "bg-selected" : "",
+            )}
+            onDragOver={(e) => {
+              if (!editable || !draggingRowId) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (dragOverColumnId !== column.id) setDragOverColumnId(column.id);
+            }}
+            onDragLeave={(e) => {
+              // Only clear if the pointer actually left this column, not just moved
+              // between two child elements inside it (which also fires dragleave).
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setDragOverColumnId((current) => (current === column.id ? undefined : current));
+              }
+            }}
+            onDrop={(e) => {
+              if (!editable) return;
+              e.preventDefault();
+              const draggedRowId = e.dataTransfer.getData(BOARD_DRAG_MIME);
+              setDragOverColumnId(undefined);
+              setDraggingRowId(null);
+              if (!draggedRowId) return;
+              const currentValue = valueIndex.get(draggedRowId)?.get(groupProperty.id) ?? null;
+              if (currentValue === column.id) return; // already in this column
+              onSetValue(draggedRowId, groupProperty.id, column.id);
+            }}
+          >
             <div className="mb-2 flex items-center justify-between px-1">
               {column.label}
               <span className="text-xs text-text-faint">{columnRows.length}</span>
@@ -139,6 +198,13 @@ export function BoardView({
                   onOpenRow={onOpenRow}
                   members={members}
                   workspaceId={workspaceId}
+                  draggable={editable}
+                  onCardDragStart={setDraggingRowId}
+                  onCardDragEnd={() => {
+                    setDraggingRowId(null);
+                    setDragOverColumnId(undefined);
+                  }}
+                  isDragging={draggingRowId === row.id}
                 />
               ))}
               {editable ? (

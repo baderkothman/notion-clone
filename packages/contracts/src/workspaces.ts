@@ -62,6 +62,7 @@ export const ROLE_CAPABILITIES = {
     createPages: true,
     deleteWorkspace: true,
     useCalendar: true,
+    useChat: true,
   },
   admin: {
     manageWorkspace: true,
@@ -70,6 +71,7 @@ export const ROLE_CAPABILITIES = {
     createPages: true,
     deleteWorkspace: false,
     useCalendar: true,
+    useChat: true,
   },
   member: {
     manageWorkspace: false,
@@ -78,10 +80,12 @@ export const ROLE_CAPABILITIES = {
     createPages: true,
     deleteWorkspace: false,
     useCalendar: true,
+    useChat: true,
   },
   // Guests are scoped to the specific pages shared with them (see docs/SECURITY.md) —
-  // the workspace calendar is a workspace-wide surface, so guests don't get it, the
-  // same reasoning that already excludes them from createPages.
+  // the workspace calendar and workspace-wide chat are both workspace-wide surfaces,
+  // so guests don't get either, the same reasoning that already excludes them from
+  // createPages.
   guest: {
     manageWorkspace: false,
     manageMembers: false,
@@ -89,5 +93,6 @@ export const ROLE_CAPABILITIES = {
     createPages: false,
     deleteWorkspace: false,
     useCalendar: false,
+    useChat: false,
   },
 } as const satisfies Record<WorkspaceRole, Record<string, boolean>>;

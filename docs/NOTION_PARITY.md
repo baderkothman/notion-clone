@@ -206,3 +206,8 @@ Not tracked against "what does Notion have" — these are new, not Notion featur
 | Sync status feedback | ✅ per-event (synced/local/error badge), connection-level (connected/error/revoked + last-synced time), toasts on sync/save/delete |
 | Real-time push (webhook) sync | ⬜ needs a domain-verified public HTTPS endpoint — an external deployment requirement, not implemented; polling ("Sync now" + sync-on-connect) ships instead |
 | Public marketing site (landing + About) | ✅ `/` (signed-out) and `/about` |
+| Status property: ordered, categorized (todo/in progress/complete), colored stages | ✅ a fresh Status property seeds 3 real stages instead of an empty option list — see `docs/ARCHITECTURE.md`'s "Status, Board drag-and-drop, and the Task list quick-start" |
+| Board view: drag-and-drop between columns | ✅ native HTML5 DnD, drop-target highlight, drag-lift feedback |
+| "New → Task list" quick-start | ✅ Status/Priority/Due date/Assignee properties pre-provisioned, default Board view grouped by Status |
+| Workspace-level Chat (`/w/[slug]/chat`), top-level sidebar nav | ✅ channels, @mention autocomplete (reuses the comments composer), edit/delete own messages |
+| Chat real-time delivery | 🟡 3-second polling, not push — see `docs/ARCHITECTURE.md`'s "Chat" for why; a documented scope decision, not a gap discovered later |

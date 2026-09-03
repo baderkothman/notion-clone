@@ -199,6 +199,74 @@ real RFC 5545 `RRULE` string server-side — not a general recurrence-rule build
 documented scope cut, the same precedent as the database "person" property being
 single-assignee-only (`docs/NOTION_PARITY.md`).
 
+## Status, Board drag-and-drop, and the Task list quick-start (Phase 2)
+
+None of this is a new module — it's the existing database system (`docs/DATABASE.md`'s
+"a row is a page") made to actually behave like a task/kanban tool, since almost
+everything it needed already existed (properties, a Board view grouped by a select-like
+property). What was actually missing:
+
+- **`status` was a `select` in a trenchcoat.** Both property types shared one editor
+  component (`select-editor.tsx`) and stored options the same way, but `status` had no
+  workflow semantics of its own — no ordered stages, no grouping, same colors as any
+  other tag. `packages/contracts/src/databases.ts` adds an optional `category`
+  (`todo` | `in_progress` | `complete`) to `SelectOption` — optional so `select`/
+  `multi_select` options are completely unaffected — and a fresh `status` property is
+  now seeded with three real stages (`server/databases/properties.ts`'s
+  `defaultStatusOptions()`) instead of an empty option list. The picker groups by
+  category when present (`select-editor.tsx`) and shows a small ring/half-ring/filled-
+  dot indicator (`StatusDot`) matching Notion's own status affordance — an inline SVG,
+  not a CSS clip-path trick, for precision at 10px.
+- **Board had no drag-and-drop.** Moving a card between columns meant editing its
+  status via the same dropdown as any table cell — workable, but not what "kanban"
+  means to anyone. `board-view.tsx` now supports native HTML5 drag-and-drop (same
+  `dataTransfer` MIME-type pattern as the sidebar's page tree drag-and-drop), with
+  drop-target highlighting and drag-lift opacity feedback.
+- **"New task list"** (`server/databases/create-task-list.ts`) is a database
+  provisioned with Status, Priority (a fixed 4-level `select` — Urgent/High/Normal/
+  Low, not user-configurable at creation, same reasoning as Status's seeded options),
+  Due date, and Assignee properties, defaulting to a Board view grouped by Status — so
+  it's a working kanban board the moment it's created, not a blank database the user
+  has to configure by hand first. Task rows are ordinary database rows under the hood,
+  so they get comments, sharing, and the block editor for free, exactly like any other
+  page — no separate "task comments" feature was needed.
+
+## Chat
+
+A genuinely new module — workspace-wide channels, not page-scoped like `comments.ts`.
+Schema: `chat_channels`, `chat_messages`, `chat_message_mentions` (same shape as
+`comment_mentions`: extracted at write time from the composer's tracked mention list,
+not re-parsed from "@Name" text later). `MentionComposer`
+(`components/page/mention-composer.tsx`, originally built for comments) is reused
+as-is for the chat composer — it was already generic (`MemberOption`,
+`onSubmit(body, mentionedUserIds)`), so no chat-specific mention UI needed building.
+
+**No setup step**: the first time anyone in a workspace opens Chat, a "general"
+channel is created on the fly (`ensureDefaultChannel`, concurrency-safe via a unique
+constraint on `(workspace_id, name)` plus `onConflictDoNothing` — a second simultaneous
+call falls through to re-reading the row the other call created, never producing two
+"general" channels).
+
+**Delivery is short-interval polling (3s), not a push channel** — the same reasoning as
+the Google Calendar section's webhook cut: no queue/worker infrastructure exists in
+this app, and building one is a materially bigger decision than a chat feature should
+force. `listMessagesAction({channelId, afterMessageId})` fetches only what's newer than
+the last message already in client state, so a busy channel doesn't re-fetch (and
+re-render) its whole history every poll. `sendMessage` returns the same joined shape
+`listMessages` does (author name/email/image, resolved `mentionedUserIds`) rather than
+the bare inserted row — the client appends it straight into a list of that shape, and a
+bare row would have rendered with a missing name/avatar until the next poll caught up
+(caught by a real TypeScript error while building this, not by testing after the fact).
+Real push-based delivery is a natural follow-up once this app has a reason to stand up
+a queue/worker — or could reuse `apps/realtime`'s existing Hocuspocus WebSocket server
+as a generic per-channel room, the same short-lived-JWT-per-room pattern
+`mint-token.ts` already establishes for editor collaboration.
+
+Authorization: `ROLE_CAPABILITIES.useChat` (workspace-wide, guests excluded — same
+reasoning as `useCalendar`). Message edit is author-only; delete is author, or anyone
+with `manageWorkspace` (moderation), mirroring comments' "author, or full page access"
+rule adapted to a surface with no per-message permission grant to check instead.
+
 ## Omniroute — evaluated and rejected
 
 The task that produced this phase asked for an AI/model-routing library called

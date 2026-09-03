@@ -104,7 +104,16 @@ export function DatabaseView({
     async (propertyId: string, name: string): Promise<SelectOption> => {
       const property = properties.find((p) => p.id === propertyId)!;
       const existing = property.config.options as SelectOption[] | undefined;
-      const option: SelectOption = { id: crypto.randomUUID(), name, color: nextOptionColor(existing ?? []) };
+      const option: SelectOption = {
+        id: crypto.randomUUID(),
+        name,
+        color: nextOptionColor(existing ?? []),
+        // A status property's options are grouped/colored by category (todo/in
+        // progress/complete — see contracts/databases.ts); a hand-added stage defaults
+        // to "in_progress" since that's what people actually add beyond the two seeded
+        // anchors (an extra review/blocked/QA step), not another start or end state.
+        ...(property.type === "status" ? { category: "in_progress" as const } : {}),
+      };
       const nextConfig = { ...property.config, options: [...(existing ?? []), option] };
       setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, config: nextConfig } : p)));
       const result = await updatePropertyAction({ propertyId, config: nextConfig });

@@ -10,4 +10,5 @@ export * from "./history";
 export * from "./audit";
 export * from "./search";
 export * from "./calendar";
+export * from "./chat";
 export * from "./relations";

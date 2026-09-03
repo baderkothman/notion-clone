@@ -7,6 +7,7 @@ import { createProperty, updateProperty, deleteProperty } from "@/server/databas
 import { createRow, setRowValue } from "@/server/databases/rows";
 import { createView, updateView } from "@/server/databases/views";
 import { createDatabase } from "@/server/databases/create-database";
+import { createTaskList } from "@/server/databases/create-task-list";
 import type {
   CreatePropertyInput,
   UpdatePropertyInput,
@@ -20,6 +21,13 @@ import type {
 export async function createDatabaseAction(input: Omit<CreatePageInput, "type">) {
   const userId = await requireUserId();
   const result = await runAction(() => createDatabase(userId, input));
+  revalidatePath(`/w`, "layout");
+  return result;
+}
+
+export async function createTaskListAction(input: Omit<CreatePageInput, "type">) {
+  const userId = await requireUserId();
+  const result = await runAction(() => createTaskList(userId, input));
   revalidatePath(`/w`, "layout");
   return result;
 }

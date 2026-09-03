@@ -284,3 +284,49 @@ Calendar sync" for the architecture.
   a specific pure submodule path if one exists, or duplicate the small pure function
   locally (see `event-dialog.tsx`'s `rruleToFrequency` for the precedent) — don't
   discover this the hard way again.
+
+## Phase 2 continued — Status/Board/Tasks and Chat
+
+See `docs/ARCHITECTURE.md`'s "Status, Board drag-and-drop, and the Task list
+quick-start" and "Chat" sections for the full architecture. Summary:
+
+- [x] Status property upgrade: `category` (todo/in_progress/complete) added to
+      `SelectOption`, optional so `select`/`multi_select` are unaffected. Fresh Status
+      properties seed 3 real stages; the picker groups by category with a Notion-style
+      ring/half-ring/filled-dot indicator (`StatusDot`, inline SVG).
+- [x] Board view drag-and-drop between columns — native HTML5 DnD, drop-target
+      highlight, drag-lift opacity feedback.
+- [x] "New → Task list" quick-start (Status/Priority/Due date/Assignee, default Board
+      view grouped by Status).
+- [x] Chat: `chat_channels`/`chat_messages`/`chat_message_mentions` schema, lazy
+      "general" channel creation, `MentionComposer` reused as-is from comments, 3s
+      polling for delivery (documented scope decision — no queue/worker infra exists;
+      see the architecture doc for the reasoning and the natural follow-up path via
+      `apps/realtime`'s existing Hocuspocus server).
+- [x] **Found and fixed two real bugs while building this** (both caught by `tsc`, not
+      discovered at runtime): (1) `sendMessage` originally returned the bare inserted
+      `chat_messages` row, not the joined shape (`authorName`/`authorEmail`/
+      `authorImage`/`mentionedUserIds`) the client list expects — the sent message
+      would have rendered with a missing name/avatar until the next poll caught up.
+      Fixed by having `sendMessage` return the same enriched shape `listMessages`
+      does. (2) `ListMessagesInput`/`SendMessageInput` were typed via `z.infer` (the
+      *output* type, with defaulted fields like `limit`/`mentionedUserIds` forced
+      required) instead of `z.input` (what a caller actually constructs) — the same
+      class of mistake as the calendar contracts' `z.date()` fix earlier this session;
+      fixed the same way, by using `z.input` for exported "Input" type aliases whenever
+      a schema has a `.default()`.
+- [x] Verified: `pnpm typecheck` (8/8), `pnpm lint` (clean), `pnpm -r test` (75/75,
+      unchanged — no new pure-logic modules needed unit tests this round beyond what
+      Status/Board/Chat already exercise through their domain functions), `next build`
+      (clean; new route `/w/[slug]/chat` ~5.7kB), full Playwright suite (20/20,
+      including `database.spec.ts` and `database-calendar-and-filters.spec.ts` — no
+      regression from the Board/Status changes). Manually verified via Playwright:
+      signed in, sent a chat message and confirmed it rendered with correct author
+      name/avatar immediately (not just after a poll), created a Task list and
+      confirmed the Board opened with 3 correctly-colored/dotted Status columns,
+      dragged a card between columns and confirmed the status value and column counts
+      updated correctly with drop-target visual feedback during the drag.
+- [ ] Not done: per-message read receipts/unread counts, scroll-back pagination past
+      the initial message window, channel archiving UI (the domain column exists,
+      `archivedAt`, but nothing sets it yet), custom recurrence/workflow stages beyond
+      the 3 seeded categories, real-time push delivery for chat (documented above).

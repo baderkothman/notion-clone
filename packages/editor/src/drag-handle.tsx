@@ -144,36 +144,49 @@ export function DragHandle({
   if (!hoveredId || !rect) return null;
 
   return (
+    // Two nested boxes, not one: the OUTER box is the actual hover-safe zone — it's
+    // `pointer-events-auto` and its width reaches all the way to the block's edge
+    // (`gutterWidth + GUTTER_GAP`, touching `left: 0`), so there is no pixel of dead
+    // space between "over the text" and "over an icon" for the mouse to cross. Moving
+    // the cursor here used to unmount this whole gutter mid-transit (see the comment
+    // on `onMouseMove` above for why a `mouseleave` on `container` clears hover) —
+    // fixing the earlier visual overlap (icons drawn on top of the block's own text)
+    // by pulling the icon row fully clear of the block introduced a literal gap
+    // between them for the first time; nothing was rendered in that gap, so crossing
+    // it counted as leaving `container` entirely. The INNER div (`gutterRef`) is only
+    // for measuring the icon row's own natural width — kept separate from the outer
+    // box so setting the outer box's width doesn't feed back into that measurement.
     <div
-      ref={gutterRef}
       contentEditable={false}
-      className="pointer-events-none absolute z-10 flex items-center gap-0.5"
-      style={{ top: rect.top, left: -(gutterWidth + GUTTER_GAP), height: rect.height }}
+      className="pointer-events-auto absolute z-10 flex items-center"
+      style={{ top: rect.top, left: -(gutterWidth + GUTTER_GAP), width: gutterWidth + GUTTER_GAP, height: rect.height }}
     >
-      <button
-        onClick={handleAdd}
-        className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-hover"
-        aria-label="Insert block below"
-      >
-        <Plus className="h-3.5 w-3.5" />
-      </button>
-      <button
-        draggable
-        onDragStart={handleDragStart}
-        className="pointer-events-auto flex h-6 w-6 cursor-grab items-center justify-center rounded text-text-faint hover:bg-hover active:cursor-grabbing"
-        aria-label="Drag to move block"
-      >
-        <GripVertical className="h-3.5 w-3.5" />
-      </button>
-      {onCommentBlock ? (
+      <div ref={gutterRef} className="flex items-center gap-0.5">
         <button
-          onClick={() => onCommentBlock(hoveredId)}
-          className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-hover"
-          aria-label="Comment on this block"
+          onClick={handleAdd}
+          className="flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-hover"
+          aria-label="Insert block below"
         >
-          <MessageSquarePlus className="h-3.5 w-3.5" />
+          <Plus className="h-3.5 w-3.5" />
         </button>
-      ) : null}
+        <button
+          draggable
+          onDragStart={handleDragStart}
+          className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-text-faint hover:bg-hover active:cursor-grabbing"
+          aria-label="Drag to move block"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        {onCommentBlock ? (
+          <button
+            onClick={() => onCommentBlock(hoveredId)}
+            className="flex h-6 w-6 items-center justify-center rounded text-text-faint hover:bg-hover"
+            aria-label="Comment on this block"
+          >
+            <MessageSquarePlus className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

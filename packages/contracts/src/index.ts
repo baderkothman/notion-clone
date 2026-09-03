@@ -10,3 +10,4 @@ export * from "./search";
 export * from "./embeds";
 export * from "./realtime";
 export * from "./calendar";
+export * from "./chat";
