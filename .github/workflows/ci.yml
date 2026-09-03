@@ -66,7 +66,17 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       minio:
-        image: bitnami/minio:latest
+        # Bitnami retired the free `bitnami/*` tags on Docker Hub (moved to a paid
+        # "Secure Images" subscription) and migrated the last free-tier images to this
+        # `bitnamilegacy/*` namespace instead — `bitnami/minio:latest` now 404s
+        # ("manifest unknown"). `minio/minio` (the official image, used in
+        # docker-compose.yml for local dev) isn't a drop-in replacement here: its
+        # default CMD is bare `minio` with no `server /data` args, and GitHub Actions'
+        # `services:` block has no `command:` override to supply them — it would start
+        # and immediately exit rather than run as a server. Verified locally
+        # (`docker run` + a real request to `/minio/health/live` → 200) before using
+        # this in CI.
+        image: bitnamilegacy/minio:latest
         env:
           MINIO_ROOT_USER: notion_minio
           MINIO_ROOT_PASSWORD: notion_minio_password
