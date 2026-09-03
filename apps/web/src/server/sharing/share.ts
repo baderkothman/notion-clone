@@ -2,12 +2,10 @@ import "server-only";
 import { db, pages, pageShares, users, workspaceMembers, eq, and } from "@notion-clone/database";
 import {
   sharePageSchema,
-  updateShareRoleSchema,
   revokeShareSchema,
   setPageVisibilitySchema,
   setPublicShareSchema,
   type SharePageInput,
-  type UpdateShareRoleInput,
   type RevokeShareInput,
   type SetPageVisibilityInput,
   type SetPublicShareInput,
@@ -64,15 +62,6 @@ export async function listShares(userId: string, pageId: string) {
     .from(pageShares)
     .innerJoin(users, eq(users.id, pageShares.userId))
     .where(eq(pageShares.pageId, pageId));
-}
-
-export async function updateShareRole(actorUserId: string, raw: UpdateShareRoleInput) {
-  const input = updateShareRoleSchema.parse(raw);
-  await assertPagePermission(actorUserId, input.pageId, "full");
-  await db
-    .update(pageShares)
-    .set({ role: input.role })
-    .where(and(eq(pageShares.pageId, input.pageId), eq(pageShares.userId, input.userId)));
 }
 
 export async function revokeShare(actorUserId: string, raw: RevokeShareInput) {

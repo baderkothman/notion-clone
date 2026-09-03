@@ -40,13 +40,13 @@ export function TrashList({ workspaceSlug, pages }: { workspaceSlug: string; pag
     <ul className="divide-y divide-border rounded-lg border border-border">
       {items.map((page) => (
         <li key={page.id} className="flex items-center gap-3 px-4 py-3">
-          <span className="text-text-faint">{page.icon ?? <File className="h-4 w-4" />}</span>
+          <span className="text-text-faint">{page.icon ?? <File className="size-4" />}</span>
           <span className="flex-1 truncate text-sm text-text">{page.title || "Untitled"}</span>
           <Button size="sm" variant="secondary" onClick={() => handleRestore(page.id)}>
-            <RotateCcw className="h-3.5 w-3.5" /> Restore
+            <RotateCcw className="size-3.5" /> Restore
           </Button>
           <Button size="sm" variant="destructive" onClick={() => handleDeleteForever(page.id)}>
-            <Trash2 className="h-3.5 w-3.5" /> Delete forever
+            <Trash2 className="size-3.5" /> Delete forever
           </Button>
         </li>
       ))}

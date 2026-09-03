@@ -7,8 +7,7 @@ import { listTrash } from "@/server/pages/queries";
 import { TrashList } from "./trash-list";
 
 export default async function TrashPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
-  const { workspaceSlug } = await params;
-  const userId = await requireUserId();
+  const [{ workspaceSlug }, userId] = await Promise.all([params, requireUserId()]);
   const workspace = await getWorkspaceBySlugForUser(userId, workspaceSlug);
   if (!workspace) notFound();
 
@@ -21,7 +20,7 @@ export default async function TrashPage({ params }: { params: Promise<{ workspac
         Pages you&apos;ve archived. Restore them or delete permanently.
       </p>
       {trashedPages.length === 0 ? (
-        <EmptyState icon={<Trash2 className="h-8 w-8" />} title="Trash is empty" />
+        <EmptyState icon={<Trash2 className="size-8" />} title="Trash is empty" />
       ) : (
         <TrashList workspaceSlug={workspaceSlug} pages={trashedPages} />
       )}

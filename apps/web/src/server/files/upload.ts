@@ -5,11 +5,9 @@ import { db, files, eq } from "@notion-clone/database";
 import {
   requestUploadSchema,
   confirmUploadSchema,
-  deleteFileSchema,
   ALLOWED_UPLOAD_MIME_TYPES,
   type RequestUploadInput,
   type ConfirmUploadInput,
-  type DeleteFileInput,
 } from "@notion-clone/contracts";
 import { NotFoundError, ValidationError, newToken } from "@notion-clone/shared";
 import { assertWorkspaceMembership } from "../permissions/assert";
@@ -107,15 +105,4 @@ export async function getDownloadUrl(userId: string, fileId: string): Promise<st
     new GetObjectCommand({ Bucket: getBucket(), Key: file.objectKey }),
     { expiresIn: DOWNLOAD_URL_TTL_SECONDS },
   );
-}
-
-export async function deleteFile(userId: string, raw: DeleteFileInput) {
-  const input = deleteFileSchema.parse(raw);
-  const [file] = await db.select().from(files).where(eq(files.id, input.fileId)).limit(1);
-  if (!file) throw new NotFoundError("File");
-  if (file.pageId) await assertPagePermission(userId, file.pageId, "edit");
-  else if (file.uploadedByUserId !== userId) throw new NotFoundError("File");
-
-  await getS3Client().send(new DeleteObjectCommand({ Bucket: getBucket(), Key: file.objectKey }));
-  await db.update(files).set({ status: "deleted", deletedAt: new Date() }).where(eq(files.id, file.id));
 }

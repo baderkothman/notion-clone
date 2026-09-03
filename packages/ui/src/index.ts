@@ -7,5 +7,4 @@ export * from "./components/popover";
 export * from "./components/tooltip";
 export * from "./components/avatar";
 export * from "./components/empty-state";
-export * from "./components/skeleton";
 export * from "./components/separator";

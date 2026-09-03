@@ -182,5 +182,6 @@ and confirm the row lands in the right column.
 | Responsive sidebar (off-canvas drawer on mobile) | ✅ |
 | Keyboard-operable menus/dialogs | ✅ (Radix primitives) |
 | Focus-visible states | ✅ design-token-driven |
-| Reduced-motion support | ✅ `prefers-reduced-motion` media query in `globals.css` |
+| Reduced-motion support | ✅ `prefers-reduced-motion` media query in `globals.css` (forces all CSS transition/animation durations to ~0) plus explicit `useReducedMotion()` checks on the handful of JS-driven `motion` animations (sidebar drag lift, comments panel open/close), which the CSS rule alone can't reach |
+| Purposeful micro-interactions | ✅ toggle-block expand/collapse (CSS-only, no JS animation library on the hot editor path), sidebar drag lift/settle feedback, comments panel open/close — kept deliberately small in number; see `docs/IMPROVEMENT_PLAN.md` Phase 10 for what was investigated and *not* added (the mobile drawer's existing CSS transition, the command menu's existing transitions) because they already worked and rewriting them would have added nothing |
 | Full WCAG 2.2 AA audit | 🟡 built with accessible primitives throughout; automated axe-core sweep (`e2e/accessibility.spec.ts`) covers the auth forms, workspace shell, page editor, a database table, and settings — zero violations, and it caught/fixed a real bug (see `docs/TESTING.md`). This is coverage of what axe can detect automatically, not a substitute for a full manual WCAG 2.2 AA audit (screen-reader walkthroughs, keyboard-only flows end to end, etc.), which hasn't been done |

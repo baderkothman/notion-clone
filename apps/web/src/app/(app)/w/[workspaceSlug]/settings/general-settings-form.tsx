@@ -36,15 +36,21 @@ export function GeneralSettingsForm({
     e.preventDefault();
     setSaving(true);
     const slugChanged = slug !== initialSlug;
-    const result = await updateWorkspaceAction({
-      workspaceId,
-      name: name.trim() || undefined,
-      slug: slugChanged ? slug.trim() : undefined,
-    });
-    setSaving(false);
-    if (!result.ok) return toast.error(result.error);
-    toast.success("Workspace updated");
-    if (slugChanged) router.push(`/w/${result.value.slug}/settings`);
+    try {
+      const result = await updateWorkspaceAction({
+        workspaceId,
+        name: name.trim() || undefined,
+        slug: slugChanged ? slug.trim() : undefined,
+      });
+      if (!result.ok) return toast.error(result.error);
+      toast.success("Workspace updated");
+      if (slugChanged) router.push(`/w/${result.value.slug}/settings`);
+    } finally {
+      // In a `finally`, not right after the await: if the action itself throws (a
+      // network failure, not the `{ ok: false }` case `runAction` already handles), the
+      // button must not stay stuck on "Saving…" for the rest of the session.
+      setSaving(false);
+    }
   }
 
   return (

@@ -41,7 +41,7 @@ export function PublicDatabaseView({
   const getValue = (rowId: string, propertyId: string) => valueIndex.get(rowId)?.get(propertyId) ?? null;
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-dvh bg-bg">
       <div className="mx-auto max-w-5xl px-8 py-10">
         {icon ? <div className="mb-2 text-5xl">{icon}</div> : null}
         <h1 className="mb-1 text-3xl font-bold text-text">{title || "Untitled"}</h1>
@@ -66,7 +66,7 @@ export function PublicDatabaseView({
                 <tr key={row.id} className="border-b border-border last:border-b-0">
                   <td className="border-r border-border px-2 py-1.5">
                     <span className="flex items-center gap-1.5 text-text">
-                      <span className="shrink-0 text-text-faint">{row.icon ?? <File className="h-3.5 w-3.5" />}</span>
+                      <span className="shrink-0 text-text-faint">{row.icon ?? <File className="size-3.5" />}</span>
                       <span className="truncate">{row.title || "Untitled"}</span>
                     </span>
                   </td>

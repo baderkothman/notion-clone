@@ -13,7 +13,7 @@ import {
 import { movePage } from "@/server/pages/move";
 import { archivePage, restorePage, deletePagePermanently } from "@/server/pages/archive";
 import { duplicatePage } from "@/server/pages/duplicate";
-import { listChildPages, listFavorites, listTrash, getBreadcrumbs } from "@/server/pages/queries";
+import { listChildPages } from "@/server/pages/queries";
 import type {
   CreatePageInput,
   UpdatePageTitleInput,
@@ -102,17 +102,3 @@ export async function listChildPagesAction(workspaceId: string, parentId: string
   return runAction(() => listChildPages(userId, workspaceId, parentId));
 }
 
-export async function listFavoritesAction(workspaceId: string) {
-  const userId = await requireUserId();
-  return runAction(() => listFavorites(userId, workspaceId));
-}
-
-export async function listTrashAction(workspaceId: string) {
-  const userId = await requireUserId();
-  return runAction(() => listTrash(userId, workspaceId));
-}
-
-export async function getBreadcrumbsAction(pageId: string) {
-  await requireUserId();
-  return runAction(() => getBreadcrumbs(pageId));
-}

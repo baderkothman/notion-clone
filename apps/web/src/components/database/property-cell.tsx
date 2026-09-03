@@ -44,15 +44,15 @@ export function PropertyCell({
 }: PropertyCellProps) {
   switch (property.type) {
     case "text":
-      return <TextCell value={typeof value === "string" ? value : ""} onChange={onChange} />;
+      return <TextCell value={typeof value === "string" ? value : ""} onChange={onChange} label={property.name} />;
     case "number":
-      return <NumberCell value={typeof value === "number" ? value : null} onChange={onChange} />;
+      return <NumberCell value={typeof value === "number" ? value : null} onChange={onChange} label={property.name} />;
     case "url":
-      return <UrlCell value={typeof value === "string" ? value : ""} onChange={onChange} />;
+      return <UrlCell value={typeof value === "string" ? value : ""} onChange={onChange} label={property.name} />;
     case "checkbox":
-      return <CheckboxCell value={value === true} onChange={onChange} />;
+      return <CheckboxCell value={value === true} onChange={onChange} label={property.name} />;
     case "date":
-      return <DateCell value={typeof value === "string" ? value : ""} onChange={onChange} />;
+      return <DateCell value={typeof value === "string" ? value : ""} onChange={onChange} label={property.name} />;
     case "select":
     case "status":
       return (
@@ -97,77 +97,115 @@ export function PropertyCell({
   }
 }
 
-function TextCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [draft, setDraft] = React.useState(value);
-  React.useEffect(() => setDraft(value), [value]);
+/** Local "draft" state resynced from `value` on every prop change, committed only on
+ * blur — deliberate (Notion/Airtable-style inline cells all work this way), not a bug
+ * on its own. The one real risk is the resync effect firing while the user is
+ * mid-edit-but-not-yet-blurred (e.g. another edit elsewhere in the same row replaces
+ * this row's data and happens to leave this cell's own `value` unchanged in a way that
+ * still re-renders it) and clobbering their in-progress keystrokes with the server
+ * value — `isFocusedRef` guards exactly that, without changing the resync/blur-commit
+ * behavior otherwise. Shared by TextCell/NumberCell/UrlCell below. */
+function useDraftValue<T>(value: T, toDraft: (v: T) => string): [string, (draft: string) => void, React.RefObject<boolean>] {
+  const [draft, setDraft] = React.useState(() => toDraft(value));
+  const isFocusedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!isFocusedRef.current) setDraft(toDraft(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return [draft, setDraft, isFocusedRef];
+}
+
+function TextCell({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  const [draft, setDraft, isFocusedRef] = useDraftValue(value, (v) => v);
   return (
     <input
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => draft !== value && onChange(draft)}
-      className="w-full bg-transparent px-2 py-1.5 text-sm text-text outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      onFocus={() => (isFocusedRef.current = true)}
+      onBlur={() => {
+        isFocusedRef.current = false;
+        if (draft !== value) onChange(draft);
+      }}
+      aria-label={label}
+      className="w-full bg-transparent px-2 py-1.5 text-base text-text outline-none focus-visible:ring-2 focus-visible:ring-focus"
       placeholder="Empty"
     />
   );
 }
 
-function NumberCell({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
-  const [draft, setDraft] = React.useState(value === null ? "" : String(value));
-  React.useEffect(() => setDraft(value === null ? "" : String(value)), [value]);
+function NumberCell({
+  value,
+  onChange,
+  label,
+}: {
+  value: number | null;
+  onChange: (v: number | null) => void;
+  label: string;
+}) {
+  const [draft, setDraft, isFocusedRef] = useDraftValue(value, (v) => (v === null ? "" : String(v)));
   return (
     <input
       type="number"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => (isFocusedRef.current = true)}
       onBlur={() => {
+        isFocusedRef.current = false;
         const parsed = draft.trim() === "" ? null : Number(draft);
         if (parsed !== value) onChange(parsed);
       }}
-      className="w-full bg-transparent px-2 py-1.5 text-sm text-text outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      aria-label={label}
+      className="w-full bg-transparent px-2 py-1.5 text-base text-text outline-none focus-visible:ring-2 focus-visible:ring-focus"
       placeholder="Empty"
     />
   );
 }
 
-function UrlCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [draft, setDraft] = React.useState(value);
-  React.useEffect(() => setDraft(value), [value]);
+function UrlCell({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  const [draft, setDraft, isFocusedRef] = useDraftValue(value, (v) => v);
   return (
     <input
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => draft !== value && onChange(draft)}
-      className="w-full bg-transparent px-2 py-1.5 text-sm text-accent underline outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      onFocus={() => (isFocusedRef.current = true)}
+      onBlur={() => {
+        isFocusedRef.current = false;
+        if (draft !== value) onChange(draft);
+      }}
+      aria-label={label}
+      className="w-full bg-transparent px-2 py-1.5 text-base text-accent underline outline-none focus-visible:ring-2 focus-visible:ring-focus"
       placeholder="Empty"
     />
   );
 }
 
-function CheckboxCell({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function CheckboxCell({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <div className="flex justify-center px-2 py-1.5">
       <button
         onClick={() => onChange(!value)}
         aria-checked={value}
+        aria-label={label}
         role="checkbox"
         className={cn(
           "flex h-4 w-4 items-center justify-center rounded border",
           value ? "border-accent bg-accent text-accent-text" : "border-border-strong",
         )}
       >
-        {value ? <Check className="h-3 w-3" /> : null}
+        {value ? <Check className="size-3" /> : null}
       </button>
     </div>
   );
 }
 
-function DateCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function DateCell({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   return (
     <input
       type="date"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-transparent px-2 py-1.5 text-sm text-text outline-none focus-visible:ring-2 focus-visible:ring-focus"
+      aria-label={label}
+      className="w-full bg-transparent px-2 py-1.5 text-base text-text outline-none focus-visible:ring-2 focus-visible:ring-focus"
     />
   );
 }
@@ -186,7 +224,8 @@ function ChoiceCell({
   onCreateOption: (name: string) => Promise<SelectOption>;
 }) {
   const options = selectOptions(property);
-  const selected = options.filter((o) => value.includes(o.id));
+  const selectedIds = new Set(value);
+  const selected = options.filter((o) => selectedIds.has(o.id));
 
   return (
     <SelectEditor options={options} value={value} multi={multi} onChange={onChange} onCreateOption={onCreateOption}>
@@ -226,7 +265,7 @@ function PersonCell({
             </>
           ) : (
             <span className="flex items-center gap-1 text-sm text-text-faint">
-              <UserIcon className="h-3.5 w-3.5" /> {compact ? "" : "Empty"}
+              <UserIcon className="size-3.5" /> {compact ? "" : "Empty"}
             </span>
           )}
         </button>
@@ -243,7 +282,7 @@ function PersonCell({
           >
             <Avatar name={member.name ?? member.email} src={member.image} size={20} />
             <span className="min-w-0 flex-1 truncate">{member.name ?? member.email}</span>
-            {member.userId === value ? <Check className="h-3.5 w-3.5 text-accent" /> : null}
+            {member.userId === value ? <Check className="size-3.5 text-accent" /> : null}
           </button>
         ))}
       </PopoverContent>
@@ -282,20 +321,20 @@ function FilesCell({
     <div className="flex min-h-[30px] flex-wrap items-center gap-1 px-2 py-1">
       {value.map((file) => (
         <span key={file.fileId} className="flex items-center gap-1 rounded bg-hover px-1.5 py-0.5 text-xs text-text">
-          <FileIcon className="h-3 w-3" />
+          <FileIcon className="size-3" />
           <span className="max-w-[100px] truncate">{file.filename}</span>
           <button onClick={() => onChange(value.filter((f) => f.fileId !== file.fileId))} aria-label="Remove file">
-            <X className="h-3 w-3" />
+            <X className="size-3" />
           </button>
         </span>
       ))}
       <button
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
-        className="flex h-5 w-5 items-center justify-center rounded text-text-faint hover:bg-hover"
+        className="flex size-5 items-center justify-center rounded text-text-faint hover:bg-hover"
         aria-label="Attach file"
       >
-        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+        {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Paperclip className="size-3.5" />}
       </button>
       <input ref={inputRef} type="file" hidden onChange={handleSelect} />
     </div>

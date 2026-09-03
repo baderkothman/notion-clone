@@ -8,15 +8,21 @@ cases covering creator-owns, private-denies, explicit-share, inheritance, worksp
 visibility, guest exclusion, and precedence ordering), history-revision pruning,
 database filter/sort (`filter-sort-core.test.ts`, 8 operators plus multi-column sort with
 empties sorting last regardless of direction), email template rendering, fractional
-sort-key ordering, domain error shapes, the in-memory rate limiter, password hashing, and
-Zod schema validation (auth, permission role exclusions). 46 tests, all passing:
+sort-key ordering, domain error shapes, the in-memory rate limiter, password hashing,
+Zod schema validation (auth, permission role exclusions), and a recursive
+prototype-pollution guard on saved document content (`json-content.test.ts`, 6 cases —
+see docs/SECURITY.md's Dependencies section for the CVE this closes; the poisoned-key
+fixtures are built with `JSON.parse`, not object-literal syntax, since `{ __proto__:
+... }` as source code triggers the property *setter* rather than producing the plain
+data property a real attack payload — and the vulnerability itself — actually has). 52
+tests, all passing:
 
 ```
 pnpm -r test
 ```
 
 **End-to-end** (Playwright, `apps/web/e2e/*.spec.ts`) — real browser against a real
-Postgres + MinIO stack. 17 tests, all passing:
+Postgres + MinIO stack. 19 tests, all passing:
 
 - `core-flow.spec.ts`: sign up → create workspace → create a page → type in the editor →
   autosave reaches "Saved" → sign out → sign back in → title and content persisted.
@@ -66,7 +72,14 @@ Postgres + MinIO stack. 17 tests, all passing:
   default, write `aria-expanded` onto their reference element regardless of whether its
   ARIA role permits that attribute — for the slash menu, the reference was
   `document.body` itself. Fixed with Tippy's `aria: { expanded: false }` option in both
-  places (`selection-toolbar.tsx`, `slash-command.ts`).
+  places (`selection-toolbar.tsx`, `slash-command.ts`). Two more permanent tests added
+  during the later UI/UX pass (see `docs/IMPROVEMENT_PLAN.md`): "sidebar row actions are
+  reachable by keyboard focus without hovering" (focuses a page row's "…" button and
+  asserts computed `opacity: 1` — regression guard for the hover-only-reveal pattern used
+  across the sidebar/board/table row actions, which are always in the DOM and
+  focus/touch-reachable, not `display:none`-hidden) and "mobile drawer: Escape closes it
+  and returns focus to the hamburger button" (375×812 viewport, opens the drawer, presses
+  Escape, asserts the hamburger regains focus rather than it falling back to `<body>`).
 
 ```
 docker compose up -d

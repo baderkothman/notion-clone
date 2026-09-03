@@ -109,7 +109,8 @@ export function MembersManager({
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as Exclude<WorkspaceRole, "owner">)}
-            className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm capitalize"
+            aria-label="Role for the invited member"
+            className="rounded-md border border-border bg-surface px-2 py-1.5 text-base capitalize"
           >
             {ASSIGNABLE_ROLES.map((r) => (
               <option key={r} value={r} className="capitalize">
@@ -141,7 +142,8 @@ export function MembersManager({
                 <select
                   value={member.role}
                   onChange={(e) => handleRoleChange(member.id, e.target.value as Exclude<WorkspaceRole, "owner">)}
-                  className="rounded-md border border-border bg-surface px-2 py-1 text-xs capitalize"
+                  aria-label={`Role for ${member.name ?? member.email}`}
+                  className="rounded-md border border-border bg-surface px-2 py-1 text-base capitalize"
                 >
                   {ASSIGNABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
@@ -158,7 +160,7 @@ export function MembersManager({
                   aria-label={`Remove ${member.email}`}
                   className="rounded p-1 text-text-faint hover:bg-hover hover:text-destructive"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="size-3.5" />
                 </button>
               ) : null}
             </li>
@@ -172,7 +174,7 @@ export function MembersManager({
           <ul className="divide-y divide-border rounded-md border border-border">
             {invitations.map((invitation) => (
               <li key={invitation.id} className="flex items-center gap-3 px-3 py-2.5">
-                <Mail className="h-4 w-4 shrink-0 text-text-faint" />
+                <Mail className="size-4 shrink-0 text-text-faint" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-text">{invitation.email}</p>
                   <p className="text-xs text-text-faint capitalize">Invited as {invitation.role}</p>

@@ -19,9 +19,19 @@ export function CollaborationPresence({ status, users }: { status: Collaboration
         {status === "connected" ? "Live" : status === "connecting" ? "Connecting…" : "Reconnecting…"}
       </span>
       {users.length > 0 ? (
-        <div className="flex items-center -space-x-1.5">
-          {users.slice(0, 5).map((user) => (
-            <Avatar key={user.name} name={user.name} size={20} className="ring-2 ring-surface" />
+        // Per-avatar negative margin (not `-space-x-*` on the container) for the
+        // overlap: `space-x`/`gap` are both incapable of negative values (`gap` can't
+        // go negative at all; `-space-x` also leaves an uneven gap if a child in the
+        // middle of the row is ever conditionally hidden, since it's a sibling-margin
+        // trick, not real spacing). Skipping the first avatar keeps its left edge flush.
+        <div className="flex items-center">
+          {users.slice(0, 5).map((user, index) => (
+            <Avatar
+              key={user.name}
+              name={user.name}
+              size={20}
+              className={`ring-2 ring-surface ${index > 0 ? "-ml-1.5" : ""}`}
+            />
           ))}
         </div>
       ) : null}

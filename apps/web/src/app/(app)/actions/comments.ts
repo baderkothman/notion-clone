@@ -5,13 +5,11 @@ import { runAction } from "@/server/action-result";
 import {
   listComments,
   createComment,
-  updateComment,
   deleteComment,
   resolveComment,
 } from "@/server/comments/comments";
 import type {
   CreateCommentInput,
-  UpdateCommentInput,
   DeleteCommentInput,
   ResolveCommentInput,
 } from "@notion-clone/contracts";
@@ -24,11 +22,6 @@ export async function listCommentsAction(pageId: string) {
 export async function createCommentAction(input: CreateCommentInput) {
   const userId = await requireUserId();
   return runAction(() => createComment(userId, input));
-}
-
-export async function updateCommentAction(input: UpdateCommentInput) {
-  const userId = await requireUserId();
-  return runAction(() => updateComment(userId, input));
 }
 
 export async function deleteCommentAction(input: DeleteCommentInput) {

@@ -30,9 +30,11 @@ export async function duplicatePage(userId: string, raw: DuplicatePageInput) {
     .limit(1);
 
   async function cloneSubtree(sourceId: string, newParentId: string | null, sortKey: string): Promise<string> {
-    const [source] = await db.select().from(pages).where(eq(pages.id, sourceId)).limit(1);
+    const [[source], [sourceDoc]] = await Promise.all([
+      db.select().from(pages).where(eq(pages.id, sourceId)).limit(1),
+      db.select().from(documents).where(eq(documents.pageId, sourceId)).limit(1),
+    ]);
     if (!source) throw new NotFoundError("Page");
-    const [sourceDoc] = await db.select().from(documents).where(eq(documents.pageId, sourceId)).limit(1);
 
     const [clone] = await db
       .insert(pages)

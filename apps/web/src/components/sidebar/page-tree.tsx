@@ -4,7 +4,6 @@ import * as React from "react";
 import type { PageTreeNode } from "@notion-clone/contracts";
 import { listChildPagesAction } from "@/app/(app)/actions/pages";
 import { PageTreeItem } from "./page-tree-item";
-import { Skeleton } from "@notion-clone/ui";
 
 export function PageTree({
   workspaceId,
@@ -28,9 +27,12 @@ export function PageTree({
 
   const refresh = React.useCallback(async () => {
     setRefreshing(true);
-    const result = await listChildPagesAction(workspaceId, null);
-    if (result.ok) setItems(result.value);
-    setRefreshing(false);
+    try {
+      const result = await listChildPagesAction(workspaceId, null);
+      if (result.ok) setItems(result.value);
+    } finally {
+      setRefreshing(false);
+    }
   }, [workspaceId]);
 
   React.useEffect(() => {
@@ -58,16 +60,6 @@ export function PageTree({
           onArchived={refresh}
         />
       ))}
-    </div>
-  );
-}
-
-export function PageTreeSkeleton() {
-  return (
-    <div className="space-y-1 px-2">
-      <Skeleton className="h-6 w-full" />
-      <Skeleton className="h-6 w-5/6" />
-      <Skeleton className="h-6 w-2/3" />
     </div>
   );
 }

@@ -75,7 +75,11 @@ export function DatabaseView({
     return valueIndex.get(rowId)?.get(propertyId) ?? null;
   }
 
-  async function handleSetValue(rowId: string, propertyId: string, value: unknown) {
+  // useCallback below (not just for Table/BoardView's convenience, but because it's
+  // required for correctness): TableRow/BoardCard are React.memo'd per-row, and a
+  // callback prop recreated on every DatabaseView render would defeat that memoization
+  // for every row on every render, regardless of whether that row's own data changed.
+  const handleSetValue = React.useCallback(async (rowId: string, propertyId: string, value: unknown) => {
     setValueIndex((prev) => {
       const next = new Map(prev);
       const rowMap = new Map(next.get(rowId));
@@ -85,30 +89,36 @@ export function DatabaseView({
     });
     const result = await setRowValueAction({ rowPageId: rowId, propertyId, value });
     if (!result.ok) toast.error(result.error);
-  }
+  }, []);
 
-  async function handleTitleChange(rowId: string, title: string) {
+  const handleTitleChange = React.useCallback(async (rowId: string, title: string) => {
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, title } : r)));
     const result = await updatePageTitleAction({ pageId: rowId, title });
     if (!result.ok) toast.error(result.error);
-  }
+  }, []);
 
-  async function handleCreateOption(propertyId: string, name: string): Promise<SelectOption> {
-    const property = properties.find((p) => p.id === propertyId)!;
-    const existing = property.config.options as SelectOption[] | undefined;
-    const option: SelectOption = { id: crypto.randomUUID(), name, color: nextOptionColor(existing ?? []) };
-    const nextConfig = { ...property.config, options: [...(existing ?? []), option] };
-    setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, config: nextConfig } : p)));
-    const result = await updatePropertyAction({ propertyId, config: nextConfig });
-    if (!result.ok) toast.error(result.error);
-    return option;
-  }
+  // Depends on `properties` (needs the current option list to pick the next color) so
+  // it's only as stable as the properties list itself — still a real win, since editing
+  // rows/values (the hot path) doesn't touch `properties` and so doesn't invalidate this.
+  const handleCreateOption = React.useCallback(
+    async (propertyId: string, name: string): Promise<SelectOption> => {
+      const property = properties.find((p) => p.id === propertyId)!;
+      const existing = property.config.options as SelectOption[] | undefined;
+      const option: SelectOption = { id: crypto.randomUUID(), name, color: nextOptionColor(existing ?? []) };
+      const nextConfig = { ...property.config, options: [...(existing ?? []), option] };
+      setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, config: nextConfig } : p)));
+      const result = await updatePropertyAction({ propertyId, config: nextConfig });
+      if (!result.ok) toast.error(result.error);
+      return option;
+    },
+    [properties],
+  );
 
-  async function handleAddRow() {
+  const handleAddRow = React.useCallback(async () => {
     const result = await createRowAction(databasePageId, workspaceId);
     if (!result.ok) return toast.error(result.error);
     setRows((prev) => [...prev, { id: result.value.id, title: "", icon: null, sortKey: result.value.sortKey }]);
-  }
+  }, [databasePageId, workspaceId]);
 
   async function handleAddProperty(name: string, type: DatabaseProperty["type"]) {
     const result = await createPropertyAction({ databasePageId, name, type });
@@ -116,17 +126,17 @@ export function DatabaseView({
     setProperties((prev) => [...prev, result.value as DatabaseProperty]);
   }
 
-  async function handleRenameProperty(propertyId: string, name: string) {
+  const handleRenameProperty = React.useCallback(async (propertyId: string, name: string) => {
     setProperties((prev) => prev.map((p) => (p.id === propertyId ? { ...p, name } : p)));
     const result = await updatePropertyAction({ propertyId, name });
     if (!result.ok) toast.error(result.error);
-  }
+  }, []);
 
-  async function handleDeleteProperty(propertyId: string) {
+  const handleDeleteProperty = React.useCallback(async (propertyId: string) => {
     setProperties((prev) => prev.filter((p) => p.id !== propertyId));
     const result = await deletePropertyAction({ propertyId });
     if (!result.ok) toast.error(result.error);
-  }
+  }, []);
 
   async function handleAddView(type: DatabaseViewRecord["type"]) {
     const names = { table: "Table", board: "Board", list: "List", calendar: "Calendar" } as const;
@@ -162,9 +172,12 @@ export function DatabaseView({
     if (!result.ok) toast.error(result.error);
   }
 
-  function openRow(rowId: string) {
-    router.push(`/w/${workspaceSlug}/p/${rowId}`);
-  }
+  const openRow = React.useCallback(
+    (rowId: string) => {
+      router.push(`/w/${workspaceSlug}/p/${rowId}`);
+    },
+    [router, workspaceSlug],
+  );
 
   const visibleRows = React.useMemo(() => {
     const filters = (activeView?.config.filters as FilterCondition[] | undefined) ?? [];
@@ -189,7 +202,7 @@ export function DatabaseView({
                   : "border-transparent text-text-muted hover:text-text",
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="size-3.5" />
               {view.name}
             </button>
           );
@@ -197,16 +210,16 @@ export function DatabaseView({
         {editable ? (
           <div className="ml-auto mb-1 flex items-center gap-1">
             <Button size="sm" variant="ghost" onClick={() => handleAddView("table")}>
-              <Plus className="h-3.5 w-3.5" /> Table
+              <Plus className="size-3.5" /> Table
             </Button>
             <Button size="sm" variant="ghost" onClick={() => handleAddView("board")}>
-              <Plus className="h-3.5 w-3.5" /> Board
+              <Plus className="size-3.5" /> Board
             </Button>
             <Button size="sm" variant="ghost" onClick={() => handleAddView("list")}>
-              <Plus className="h-3.5 w-3.5" /> List
+              <Plus className="size-3.5" /> List
             </Button>
             <Button size="sm" variant="ghost" onClick={() => handleAddView("calendar")}>
-              <Plus className="h-3.5 w-3.5" /> Calendar
+              <Plus className="size-3.5" /> Calendar
             </Button>
           </div>
         ) : null}
@@ -219,17 +232,21 @@ export function DatabaseView({
             <select
               value={(activeView.config.groupByPropertyId as string | undefined) ?? ""}
               onChange={(e) => handleSetGroupBy(e.target.value || null)}
-              className="rounded-md border border-border bg-surface px-2 py-1 text-sm"
+              aria-label="Group by"
+              className="rounded-md border border-border bg-surface px-2 py-1 text-base"
               disabled={!editable}
             >
               <option value="">None</option>
-              {properties
-                .filter((p) => p.type === "select" || p.type === "status")
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
+              {properties.reduce<React.ReactNode[]>((options, p) => {
+                if (p.type === "select" || p.type === "status") {
+                  options.push(
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>,
+                  );
+                }
+                return options;
+              }, [])}
             </select>
           </div>
         ) : null}
@@ -239,26 +256,36 @@ export function DatabaseView({
             <select
               value={(activeView.config.datePropertyId as string | undefined) ?? ""}
               onChange={(e) => handleSetDateProperty(e.target.value || null)}
-              className="rounded-md border border-border bg-surface px-2 py-1 text-sm"
+              aria-label="Date property"
+              className="rounded-md border border-border bg-surface px-2 py-1 text-base"
               disabled={!editable}
             >
               <option value="">None</option>
-              {properties
-                .filter((p) => p.type === "date")
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
+              {properties.reduce<React.ReactNode[]>((options, p) => {
+                if (p.type === "date") {
+                  options.push(
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>,
+                  );
+                }
+                return options;
+              }, [])}
             </select>
           </div>
         ) : null}
         <FilterControl
+          // Remounts when the active view changes, so its internal per-row key
+          // tracking (see filter-sort-controls.tsx) never has to reconcile a `filters`
+          // array swapped out wholesale from outside — a fresh view's filter set starts
+          // from a clean slate rather than trying to diff against the previous view's.
+          key={`filters-${activeViewId}`}
           properties={properties}
           filters={(activeView?.config.filters as FilterCondition[] | undefined) ?? []}
           onChange={handleSetFilters}
         />
         <SortControl
+          key={`sorts-${activeViewId}`}
           properties={properties}
           sorts={(activeView?.config.sorts as SortCondition[] | undefined) ?? []}
           onChange={handleSetSorts}
@@ -269,7 +296,7 @@ export function DatabaseView({
         <TableView
           properties={properties}
           rows={visibleRows}
-          getValue={getValue}
+          valueIndex={valueIndex}
           onSetValue={handleSetValue}
           onTitleChange={handleTitleChange}
           onCreateOption={handleCreateOption}
@@ -285,7 +312,7 @@ export function DatabaseView({
         <BoardView
           properties={properties}
           rows={visibleRows}
-          getValue={getValue}
+          valueIndex={valueIndex}
           onSetValue={handleSetValue}
           groupByPropertyId={(activeView.config.groupByPropertyId as string | null) ?? null}
           onAddRow={handleAddRow}

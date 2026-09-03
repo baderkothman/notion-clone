@@ -2,15 +2,13 @@ import "server-only";
 import { db, comments, commentMentions, users, eq, and, isNull, inArray } from "@notion-clone/database";
 import {
   createCommentSchema,
-  updateCommentSchema,
   deleteCommentSchema,
   resolveCommentSchema,
   type CreateCommentInput,
-  type UpdateCommentInput,
   type DeleteCommentInput,
   type ResolveCommentInput,
 } from "@notion-clone/contracts";
-import { ForbiddenError, NotFoundError } from "@notion-clone/shared";
+import { NotFoundError } from "@notion-clone/shared";
 import { assertPagePermission } from "../permissions/assert";
 
 export async function listComments(userId: string, pageId: string) {
@@ -75,18 +73,6 @@ export async function createComment(userId: string, raw: CreateCommentInput) {
 
     return comment;
   });
-}
-
-export async function updateComment(userId: string, raw: UpdateCommentInput) {
-  const input = updateCommentSchema.parse(raw);
-  const [comment] = await db.select().from(comments).where(eq(comments.id, input.commentId)).limit(1);
-  if (!comment) throw new NotFoundError("Comment");
-  if (comment.authorId !== userId) throw new ForbiddenError("You can only edit your own comments.");
-
-  await db
-    .update(comments)
-    .set({ body: input.body, editedAt: new Date() })
-    .where(eq(comments.id, input.commentId));
 }
 
 export async function deleteComment(userId: string, raw: DeleteCommentInput) {

@@ -55,7 +55,7 @@ export function SelectEditor({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search or create…"
           autoFocus
-          className="mb-2 w-full rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className="mb-2 w-full rounded-md border border-border bg-surface px-2 py-1 text-base outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
         <div className="max-h-48 space-y-0.5 overflow-y-auto">
           {filtered.map((option) => (
@@ -72,7 +72,7 @@ export function SelectEditor({
               >
                 {option.name}
               </span>
-              {value.includes(option.id) ? <Check className="h-3.5 w-3.5 text-accent" /> : null}
+              {value.includes(option.id) ? <Check className="size-3.5 text-accent" /> : null}
             </button>
           ))}
           {query.trim() && !exactMatch ? (
@@ -80,7 +80,7 @@ export function SelectEditor({
               onClick={handleCreate}
               className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-sm text-text-muted hover:bg-hover"
             >
-              <Plus className="h-3.5 w-3.5" /> Create &ldquo;{query.trim()}&rdquo;
+              <Plus className="size-3.5" /> Create &ldquo;{query.trim()}&rdquo;
             </button>
           ) : null}
         </div>

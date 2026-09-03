@@ -1,25 +1,17 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { BlockEditor, useAutosave, useCollaboration, type AutosaveResult, type JSONContent, type Editor } from "@notion-clone/editor";
-import {
-  updatePageTitleAction,
-  updatePageIconAction,
-  updatePageCoverAction,
-} from "@/app/(app)/actions/pages";
-import { createPageAction } from "@/app/(app)/actions/pages";
+import { updatePageTitleAction, createPageAction } from "@/app/(app)/actions/pages";
 import { saveDocumentAction } from "@/app/(app)/actions/blocks";
 import { mintRealtimeTokenAction } from "@/app/(app)/actions/realtime";
-import { listWorkspaceMembersAction } from "@/app/(app)/actions/workspaces";
-import {
-  listCommentsAction,
-  createCommentAction,
-  resolveCommentAction,
-  deleteCommentAction,
-} from "@/app/(app)/actions/comments";
 import { collaborationColorForUserId } from "@/lib/collaboration-color";
+import { useComments } from "./use-comments";
+import { usePageChrome } from "./use-page-chrome";
 import { Breadcrumbs } from "./breadcrumbs";
 import { PageIconPicker } from "./page-icon-picker";
 import { PageCover } from "./page-cover";
@@ -27,10 +19,16 @@ import { PageTitle } from "./page-title";
 import { PageMenu } from "./page-menu";
 import { AutosaveIndicator } from "./autosave-indicator";
 import { CollaborationPresence } from "./collaboration-presence";
-import { ShareDialog } from "./share-dialog";
-import { HistoryPanel } from "./history-panel";
-import { CommentsPanel, type Comment } from "./comments-panel";
-import type { MemberOption } from "./mention-composer";
+
+// These three are all "closed by default, may never be opened this session" surfaces —
+// the share dialog, the version-history panel, and the comments panel each render
+// nothing until the viewer explicitly opens them (see each component's own `if
+// (!open) return null`/Radix-unmounted-while-closed behavior). Loading their code in a
+// separate chunk, fetched only on first open, keeps them out of the editor route's
+// initial JS without changing what they render once opened.
+const ShareDialog = dynamic(() => import("./share-dialog").then((m) => m.ShareDialog));
+const HistoryPanel = dynamic(() => import("./history-panel").then((m) => m.HistoryPanel));
+const CommentsPanel = dynamic(() => import("./comments-panel").then((m) => m.CommentsPanel));
 import { createEditorFileService } from "./editor-file-service";
 import { editorEmbedService } from "./editor-embed-service";
 
@@ -82,36 +80,13 @@ export function PageView({
   realtimeWsUrl,
 }: PageViewProps) {
   const router = useRouter();
-  const [icon, setIcon] = React.useState(page.icon);
-  const [cover, setCover] = React.useState(page.coverImage);
-  const [commentsOpen, setCommentsOpen] = React.useState(false);
   const [historyOpen, setHistoryOpen] = React.useState(false);
-  const [comments, setComments] = React.useState<Comment[]>([]);
-  const [members, setMembers] = React.useState<MemberOption[]>([]);
-  const [commentTargetBlockId, setCommentTargetBlockId] = React.useState<string | null>(null);
   const editorRef = React.useRef<Editor | null>(null);
 
+  const { icon, cover, changeIcon, changeCover } = usePageChrome(page.id, page.icon, page.coverImage);
+  const comments = useComments(page.id, workspaceId);
+
   const fileService = React.useMemo(() => createEditorFileService(workspaceId, page.id), [workspaceId, page.id]);
-
-  const refreshComments = React.useCallback(async () => {
-    const result = await listCommentsAction(page.id);
-    if (result.ok) setComments(result.value);
-  }, [page.id]);
-
-  // Comments (and who's commentable, for @mentions) are fetched once on mount — not
-  // only when the panel opens — because the editor's right-margin comment badges need
-  // to know which blocks have threads even while the panel is closed.
-  React.useEffect(() => {
-    void refreshComments();
-    void listWorkspaceMembersAction(workspaceId).then((result) => {
-      if (result.ok) setMembers(result.value.map((m) => ({ userId: m.userId, name: m.name, email: m.email, image: m.image })));
-    });
-  }, [refreshComments, workspaceId]);
-
-  const commentedBlockIds = React.useMemo(
-    () => new Set(comments.filter((c) => c.blockId && !c.resolvedAt).map((c) => c.blockId!)),
-    [comments],
-  );
 
   const saveContent = React.useCallback(
     async (json: JSONContent, expectedVersion: number): Promise<AutosaveResult> => {
@@ -179,18 +154,6 @@ export function PageView({
     void updatePageTitleAction({ pageId: page.id, title });
   }, 500);
 
-  async function handleIconChange(next: string | null) {
-    setIcon(next);
-    const result = await updatePageIconAction({ pageId: page.id, icon: next });
-    if (!result.ok) toast.error(result.error);
-  }
-
-  async function handleCoverChange(next: string | null) {
-    setCover(next);
-    const result = await updatePageCoverAction({ pageId: page.id, coverImage: next });
-    if (!result.ok) toast.error(result.error);
-  }
-
   async function handleCreateChildPage() {
     const result = await createPageAction({ workspaceId, parentId: page.id });
     if (!result.ok) {
@@ -198,35 +161,6 @@ export function PageView({
       return null;
     }
     return { id: result.value.id, title: result.value.title, icon: result.value.icon };
-  }
-
-  function handleCommentBlock(blockId: string) {
-    setCommentsOpen(true);
-    setCommentTargetBlockId(blockId);
-  }
-
-  async function handleCreateComment(
-    body: string,
-    mentionedUserIds: string[],
-    blockId: string | null,
-    parentCommentId: string | null,
-  ) {
-    const result = await createCommentAction({ pageId: page.id, body, mentionedUserIds, blockId, parentCommentId });
-    if (!result.ok) return toast.error(result.error);
-    setCommentTargetBlockId(null);
-    void refreshComments();
-  }
-
-  async function handleResolveComment(commentId: string, resolved: boolean) {
-    const result = await resolveCommentAction({ commentId, resolved });
-    if (!result.ok) return toast.error(result.error);
-    void refreshComments();
-  }
-
-  async function handleDeleteComment(commentId: string) {
-    const result = await deleteCommentAction({ commentId });
-    if (!result.ok) return toast.error(result.error);
-    void refreshComments();
   }
 
   return (
@@ -250,15 +184,15 @@ export function PageView({
               pageId={page.id}
               workspaceSlug={workspaceSlug}
               onOpenHistory={() => setHistoryOpen(true)}
-              onToggleComments={() => setCommentsOpen((v) => !v)}
+              onToggleComments={() => comments.setOpen((v) => !v)}
             />
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          <PageCover coverImage={cover} onChange={handleCoverChange} />
+          <PageCover coverImage={cover} onChange={changeCover} />
           <div className="mx-auto max-w-3xl px-8 pb-24 pt-8">
-            <PageIconPicker icon={icon} onChange={handleIconChange} />
+            <PageIconPicker icon={icon} onChange={changeIcon} />
             <div className="mt-2">
               <PageTitle
                 initialTitle={page.title}
@@ -297,8 +231,8 @@ export function PageView({
                   onCreateChildPage={handleCreateChildPage}
                   fileService={fileService}
                   embedService={editorEmbedService}
-                  onCommentBlock={handleCommentBlock}
-                  commentedBlockIds={commentedBlockIds}
+                  onCommentBlock={comments.openForBlock}
+                  commentedBlockIds={comments.commentedBlockIds}
                   collaboration={
                     editorMode === "collab" && collaboration.ydoc
                       ? { document: collaboration.ydoc, provider: collaboration.provider ?? undefined, user: collabUser }
@@ -311,16 +245,20 @@ export function PageView({
         </div>
       </div>
 
-      <CommentsPanel
-        open={commentsOpen}
-        comments={comments}
-        members={members}
-        targetBlockId={commentTargetBlockId}
-        onClearTarget={() => setCommentTargetBlockId(null)}
-        onCreate={handleCreateComment}
-        onResolve={handleResolveComment}
-        onDelete={handleDeleteComment}
-      />
+      <AnimatePresence>
+        {comments.open ? (
+          <CommentsPanel
+            key="comments-panel"
+            comments={comments.comments}
+            members={comments.members}
+            targetBlockId={comments.targetBlockId}
+            onClearTarget={comments.clearTarget}
+            onCreate={comments.create}
+            onResolve={comments.resolve}
+            onDelete={comments.remove}
+          />
+        ) : null}
+      </AnimatePresence>
       <HistoryPanel pageId={page.id} open={historyOpen} onOpenChange={setHistoryOpen} onRestored={() => router.refresh()} />
     </div>
   );

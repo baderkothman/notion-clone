@@ -6,14 +6,12 @@ import { runAction } from "@/server/action-result";
 import {
   sharePage,
   listShares,
-  updateShareRole,
   revokeShare,
   setPageVisibility,
   setPublicShare,
 } from "@/server/sharing/share";
 import type {
   SharePageInput,
-  UpdateShareRoleInput,
   RevokeShareInput,
   SetPageVisibilityInput,
   SetPublicShareInput,
@@ -29,11 +27,6 @@ export async function sharePageAction(input: SharePageInput) {
 export async function listSharesAction(pageId: string) {
   const userId = await requireUserId();
   return runAction(() => listShares(userId, pageId));
-}
-
-export async function updateShareRoleAction(input: UpdateShareRoleInput) {
-  const userId = await requireUserId();
-  return runAction(() => updateShareRole(userId, input));
 }
 
 export async function revokeShareAction(input: RevokeShareInput) {

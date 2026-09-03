@@ -52,7 +52,7 @@ export function Sidebar({
   return (
     <nav
       aria-label="Sidebar"
-      className="flex h-screen w-64 shrink-0 flex-col border-r border-border bg-sidebar"
+      className="flex h-dvh w-64 shrink-0 flex-col border-r border-border bg-sidebar"
     >
       <div className="flex flex-col gap-2 p-2">
         <WorkspaceSwitcher current={currentWorkspace} workspaces={workspaces} />
@@ -66,16 +66,16 @@ export function Sidebar({
           <p className="text-xs font-medium text-text-faint">Pages</p>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button aria-label="New" className="flex h-5 w-5 items-center justify-center rounded hover:bg-hover">
-                <Plus className="h-3.5 w-3.5 text-text-faint" />
+              <button aria-label="New" className="flex size-5 items-center justify-center rounded hover:bg-hover">
+                <Plus className="size-3.5 text-text-faint" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={handleNewPage}>
-                <FileText className="h-3.5 w-3.5" /> Page
+                <FileText className="size-3.5" /> Page
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={handleNewDatabase}>
-                <Database className="h-3.5 w-3.5" /> Database
+                <Database className="size-3.5" /> Database
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -94,7 +94,7 @@ export function Sidebar({
             isTrashActive ? "bg-selected text-text" : "text-text-muted hover:bg-hover hover:text-text",
           )}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          <Trash2 className="size-3.5" />
           Trash
         </Link>
       </div>

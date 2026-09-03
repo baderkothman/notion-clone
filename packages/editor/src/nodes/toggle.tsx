@@ -33,10 +33,30 @@ function ToggleView({ node, updateAttributes }: NodeViewProps) {
           style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
         />
       </button>
-      <NodeViewContent
-        className="min-w-0 flex-1"
-        style={{ display: open ? "block" : "none" }}
-      />
+      {/* `NodeViewContent` is the live, editable ProseMirror region for this node's
+        children — it must stay mounted at all times (see the doc comment above), so
+        collapsing animates a wrapper around it rather than ever unmounting or
+        `display:none`-ing the content itself.
+
+        The height animation is a plain CSS grid trick (a row track transitioning between
+        `0fr` and `1fr`), not a JS animation library: this file is part of every route
+        that renders a `BlockEditor`, including the public read-only share view, so a
+        library dependency added here can't be scoped away the way it can in
+        app-level components — it would ship to every reader of every public page.
+        `transition-[grid-template-rows]` already respects the app-wide
+        `prefers-reduced-motion` rule in globals.css, which forces all transition/animation
+        durations to ~0 for users who've asked for it — no extra handling needed here.
+        `inert` (a real DOM attribute, not a style) is what removes the content from the
+        tab order and a11y tree while collapsed; the grid/overflow only animate the
+        visual. */}
+      <div
+        className="grid min-w-0 flex-1 transition-[grid-template-rows] duration-150 ease-in-out"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden" inert={!open}>
+          <NodeViewContent />
+        </div>
+      </div>
     </NodeViewWrapper>
   );
 }

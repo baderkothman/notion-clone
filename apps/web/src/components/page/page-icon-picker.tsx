@@ -43,7 +43,7 @@ export function PageIconPicker({
                 onChange(emoji);
                 setOpen(false);
               }}
-              className="flex h-6 w-6 items-center justify-center rounded text-lg hover:bg-hover"
+              className="flex size-6 items-center justify-center rounded text-lg hover:bg-hover"
             >
               {emoji}
             </button>

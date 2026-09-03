@@ -17,10 +17,3 @@ export async function listRevisions(userId: string, pageId: string) {
     .where(eq(pageRevisions.pageId, pageId))
     .orderBy(desc(pageRevisions.createdAt));
 }
-
-export async function getRevision(userId: string, pageId: string, revisionId: string) {
-  await assertPagePermission(userId, pageId, "view");
-  const [row] = await db.select().from(pageRevisions).where(eq(pageRevisions.id, revisionId)).limit(1);
-  if (!row || row.pageId !== pageId) return null;
-  return row;
-}

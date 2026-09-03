@@ -10,7 +10,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
   return (
     <html lang="en">
       <body>
-        <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif" }}>
+        <div style={{ display: "flex", minHeight: "100dvh", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif" }}>
           <div style={{ textAlign: "center" }}>
             <h1 style={{ fontSize: "1.25rem", fontWeight: 600 }}>Something went wrong</h1>
             <p style={{ color: "#6b6a67", marginTop: 4 }}>Please try again.</p>

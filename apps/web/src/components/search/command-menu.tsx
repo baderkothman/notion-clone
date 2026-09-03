@@ -70,9 +70,9 @@ export function CommandMenu({ workspaceId, workspaceSlug }: { workspaceId: strin
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Trigger asChild>
         <button className="flex w-full items-center gap-2 rounded-md border border-border px-2 py-1.5 text-left text-xs text-text-faint hover:bg-hover">
-          <Search className="h-3.5 w-3.5" />
+          <Search className="size-3.5" />
           Search
-          <kbd className="ml-auto rounded border border-border bg-surface px-1 font-sans text-[10px]">⌘K</kbd>
+          <kbd className="ml-auto rounded border border-border bg-surface px-1 font-sans text-xs">⌘K</kbd>
         </button>
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
@@ -86,13 +86,13 @@ export function CommandMenu({ workspaceId, workspaceSlug }: { workspaceId: strin
             Search for a page by title or content within this workspace.
           </DialogPrimitive.Description>
           <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-            <Search className="h-4 w-4 text-text-faint" />
+            <Search className="size-4 text-text-faint" />
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search pages…"
-              className="w-full bg-transparent text-sm text-text outline-none placeholder:text-text-faint"
+              className="w-full bg-transparent text-base text-text outline-none placeholder:text-text-faint"
             />
           </div>
           <div className="max-h-80 overflow-y-auto p-1.5">
@@ -113,7 +113,7 @@ export function CommandMenu({ workspaceId, workspaceSlug }: { workspaceId: strin
                     index === activeIndex ? "bg-hover text-text" : "text-text-muted",
                   )}
                 >
-                  <span className="shrink-0">{result.icon ?? <File className="h-4 w-4" />}</span>
+                  <span className="shrink-0">{result.icon ?? <File className="size-4" />}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-text">{result.title}</span>
                     {result.snippet ? (

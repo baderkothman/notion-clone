@@ -133,9 +133,70 @@ instead) — `default-src 'self'`, explicit `connect-src` allowance for the S3 e
 
 ## Dependencies
 
-No dependency was pinned to a version with a known critical/high CVE at the time of
-writing. `pnpm audit` should be run periodically (not wired into CI in this pass — see
-`docs/TESTING.md` for what CI coverage exists today).
+`pnpm audit` is run periodically (not wired into CI in this pass — see `docs/TESTING.md`
+for what CI coverage exists today; see `docs/IMPROVEMENT_PLAN.md` for the audit that
+found and fixed the below).
+
+Two dependencies were found pinned to versions with known critical/high CVEs and were
+upgraded:
+
+- **`next-auth`** was on `5.0.0-beta.25`, vulnerable to (among others) two critical
+  issues — auth checks failing open on a provider configuration error
+  (GHSA-8fpg-xm3f-6cx3) and an email-normalizer homoglyph `@` bypass
+  (GHSA-7rqj-j65f-68wh) — plus a high-severity uncaught exception in `getToken()` on a
+  malformed Bearer header. Bumped to `5.0.0-beta.32` (the current patched release; v5 is
+  still in beta upstream). This app only uses the Credentials provider (no OAuth), so
+  the beta's other breaking changes (OAuth cookie provider-binding, OAuth 1.0
+  deprecation) don't apply here.
+- **`drizzle-orm`** was on `0.38.3`, vulnerable to a high-severity SQL injection via
+  improperly escaped identifiers in `sql.identifier()`/`sql.as()` (fixed in `0.45.2`).
+  This codebase never calls either function (verified by grep), so the actual
+  exploitability was nil, but the version was bumped to `0.45.2` anyway (with
+  `drizzle-kit` bumped to `0.31.10` to match) — verified with a full typecheck, the unit
+  suite, all 10 integration tests against real Postgres, and the full Playwright suite.
+
+A third finding — **`@tiptap/core` prototype pollution** (moderate,
+[GHSA-cp6q-959q-f8rh](https://github.com/advisories/GHSA-cp6q-959q-f8rh):
+`mergeAttributes()` turns an own `__proto__` key into an inherited, executable
+prototype mutation) — reaches this app via `@hocuspocus/transformer` in
+`apps/realtime` at `@tiptap/core@2.27.2`; the fix requires `>=3.30.4`, a major-version
+migration across the ~15 `@tiptap/*` packages this app is pinned to, with real breaking
+API changes. That migration was judged out of scope to attempt as a side effect of a
+routine audit pass, but the actual reachable attack path was investigated and closed
+rather than only documented: `saveDocumentSchema`
+(`packages/contracts/src/pages.ts`) previously validated a saved page's document content
+with nothing stronger than `typeof v === "object" && v !== null`, and that content is
+later fed to `@hocuspocus/transformer`'s `toYdoc()` on the realtime server
+(`apps/realtime/src/server.ts`) — meaning a hand-crafted `saveDocumentAction` request
+carrying a poisoned `attrs.__proto__` key could reach the vulnerable code path without
+the attacker ever touching the editor UI or Tiptap client-side at all. Fixed with a
+`hasDangerousKey()` check (`packages/contracts/src/json-content.ts`, covered by
+`json-content.test.ts`) rejecting `__proto__`/`constructor`/`prototype` keys anywhere in
+submitted content, wired into `saveDocumentSchema`'s validator.
+
+**Accepted residual risk** (effectively non-exploitable in this app's actual usage, or
+requiring a disproportionately large fix relative to the risk):
+
+- PostCSS (2 high, 2 moderate CVEs — arbitrary file read, path traversal, XSS via
+  unescaped `</style>`) is bundled inside `next@15.5.25` itself, not a direct dependency
+  here. All of these require processing *untrusted* CSS input; this app only ever
+  processes developer-authored CSS at build time. Fixing this properly means bumping
+  Next.js itself, which is a materially bigger, riskier change than a dependency-version
+  bump and is out of scope for this pass — a candidate for its own dedicated,
+  separately-tested phase later.
+- `esbuild<=0.24.2` (moderate — a compromised dev-server request/response read) reaches
+  this repo only via `drizzle-kit`'s deprecated transitive `@esbuild-kit/esm-loader`
+  chain. `drizzle-kit` is a devDependency, run only locally for `db:generate`/
+  `db:studio`, never shipped or executed in production.
+- The remaining, harder-to-reach half of the Tiptap prototype-pollution issue above: a
+  malicious *authenticated collaborator* (one who already has edit access to a page)
+  crafting raw Yjs protocol messages directly over the realtime WebSocket — bypassing
+  the editor UI, the client-side ProseMirror schema, and `saveDocumentSchema` entirely
+  — could still reach the same underlying Tiptap bug via the live collaboration path.
+  Closing this fully needs either the full Tiptap v3 migration or protocol-level attrs
+  validation inside `apps/realtime`'s Hocuspocus hooks, both materially larger changes
+  than this pass's scope; noted here rather than left silent, matching how the SSRF
+  TOCTOU gap above is handled.
 
 ## What was not implemented
 

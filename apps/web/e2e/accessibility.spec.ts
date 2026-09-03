@@ -106,4 +106,54 @@ test.describe("accessibility audit", () => {
       .analyze();
     expect(settingsResults.violations).toEqual([]);
   });
+
+  test("sidebar row actions are reachable by keyboard focus without hovering", async ({ page }) => {
+    // Regression guard: these buttons used to be `hidden ... group-hover:flex`
+    // (`display:none` until a mouse hover), which meant Tab could never reach them at
+    // all — a `display:none` element is unfocusable, full stop. Now they're always in
+    // the DOM (just visually quiet until hover/focus/touch), so focusing one directly
+    // (exactly what Tab does) must reveal it.
+    const email = `a11y-kbd-${Date.now()}@example.com`;
+    await page.goto("/sign-up");
+    await page.getByLabel("Name").fill("Keyboard Tester");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("correct-horse-battery-staple");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
+    await page.getByLabel("Workspace name").fill("Keyboard WS");
+    await page.getByRole("button", { name: "Create workspace" }).click();
+    await expect(page).toHaveURL(/\/w\//, { timeout: 15_000 });
+
+    await page.getByRole("button", { name: "New" }).click();
+    await page.getByRole("menuitem", { name: "Page" }).click();
+    await expect(page).toHaveURL(/\/p\//, { timeout: 15_000 });
+
+    const pageOptions = page.getByRole("button", { name: "Page options" }).first();
+    await pageOptions.focus();
+    await expect(pageOptions).toBeFocused();
+    await expect
+      .poll(() => pageOptions.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe("1");
+  });
+
+  test("mobile drawer: Escape closes it and returns focus to the hamburger button", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    const email = `a11y-drawer-${Date.now()}@example.com`;
+    await page.goto("/sign-up");
+    await page.getByLabel("Name").fill("Drawer Tester");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill("correct-horse-battery-staple");
+    await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
+    await page.getByLabel("Workspace name").fill("Drawer WS");
+    await page.getByRole("button", { name: "Create workspace" }).click();
+    await expect(page).toHaveURL(/\/w\//, { timeout: 15_000 });
+
+    const hamburger = page.getByRole("button", { name: "Open sidebar" });
+    await hamburger.click();
+    await expect(page.getByRole("button", { name: "Close sidebar" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: "Open sidebar" })).toBeFocused();
+  });
 });

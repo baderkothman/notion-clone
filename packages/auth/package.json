@@ -15,7 +15,7 @@
     "@notion-clone/database": "workspace:*",
     "@notion-clone/contracts": "workspace:*",
     "@notion-clone/shared": "workspace:*",
-    "next-auth": "5.0.0-beta.25",
+    "next-auth": "5.0.0-beta.32",
     "bcryptjs": "^2.4.3"
   },
   "devDependencies": {

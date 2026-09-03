@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { JSONContent } from "./json-content";
+import { JSONContent, hasDangerousKey } from "./json-content";
 
 export const createPageSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -61,7 +61,10 @@ export type ToggleFavoriteInput = z.infer<typeof toggleFavoriteSchema>;
  * apps/web/src/server/blocks/save-document.ts. */
 export const saveDocumentSchema = z.object({
   pageId: z.string().uuid(),
-  content: z.custom<JSONContent>((v) => typeof v === "object" && v !== null),
+  content: z.custom<JSONContent>(
+    (v) => typeof v === "object" && v !== null && !hasDangerousKey(v),
+    { message: "Document content contains a disallowed key." },
+  ),
   expectedVersion: z.number().int().nonnegative(),
 });
 export type SaveDocumentInput = z.infer<typeof saveDocumentSchema>;

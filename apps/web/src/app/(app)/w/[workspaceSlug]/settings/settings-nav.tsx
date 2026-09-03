@@ -26,7 +26,7 @@ export function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
               active ? "bg-selected text-text" : "text-text-muted hover:bg-hover hover:text-text",
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className="size-3.5" />
             {item.label}
           </Link>
         );

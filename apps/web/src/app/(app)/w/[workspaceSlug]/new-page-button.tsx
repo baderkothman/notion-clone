@@ -27,7 +27,7 @@ export function NewPageButton({ workspaceId, workspaceSlug }: { workspaceId: str
 
   return (
     <Button variant="primary" onClick={onClick} disabled={pending}>
-      <Plus className="h-3.5 w-3.5" /> Create your first page
+      <Plus className="size-3.5" /> Create your first page
     </Button>
   );
 }

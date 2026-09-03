@@ -22,8 +22,7 @@ export default async function PageRoute({
 }: {
   params: Promise<{ workspaceSlug: string; pageId: string }>;
 }) {
-  const { workspaceSlug, pageId } = await params;
-  const userId = await requireUserId();
+  const [{ workspaceSlug, pageId }, userId] = await Promise.all([params, requireUserId()]);
 
   let data: Awaited<ReturnType<typeof getPageWithDocument>>;
   try {
@@ -34,7 +33,7 @@ export default async function PageRoute({
       return (
         <div className="flex h-full items-center justify-center">
           <EmptyState
-            icon={<ShieldAlert className="h-8 w-8" />}
+            icon={<ShieldAlert className="size-8" />}
             title="You don't have access to this page"
             description="Ask the page owner to share it with you, or switch accounts if you expected access."
           />

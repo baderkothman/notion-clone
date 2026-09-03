@@ -16,14 +16,14 @@
   "dependencies": {
     "@notion-clone/shared": "workspace:*",
     "@notion-clone/contracts": "workspace:*",
-    "drizzle-orm": "^0.38.3",
+    "drizzle-orm": "^0.45.2",
     "postgres": "^3.4.5",
     "bcryptjs": "^2.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
     "@types/bcryptjs": "^2.4.6",
-    "drizzle-kit": "^0.30.2",
+    "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.4"

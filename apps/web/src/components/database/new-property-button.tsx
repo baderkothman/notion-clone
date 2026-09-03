@@ -27,7 +27,7 @@ export function NewPropertyButton({ onAdd }: { onAdd: (name: string, type: Prope
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-text-faint hover:bg-hover">
-          <Plus className="h-3.5 w-3.5" /> New property
+          <Plus className="size-3.5" /> New property
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-1">
@@ -36,7 +36,7 @@ export function NewPropertyButton({ onAdd }: { onAdd: (name: string, type: Prope
           onChange={(e) => setName(e.target.value)}
           placeholder="Property name"
           autoFocus
-          className="mb-1 w-full rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none"
+          className="mb-1 w-full rounded-md border border-border bg-surface px-2 py-1 text-base outline-none"
         />
         <div className="max-h-56 overflow-y-auto">
           {propertyTypes

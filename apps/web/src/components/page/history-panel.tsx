@@ -50,7 +50,7 @@ export function HistoryPanel({
         {loading ? (
           <p className="text-sm text-text-faint">Loading…</p>
         ) : revisions.length === 0 ? (
-          <p className="text-sm text-text-faint">No snapshots yet. Keep editing — one is captured periodically.</p>
+          <p className="text-sm text-text-faint">No snapshots yet. One is captured automatically as you keep editing.</p>
         ) : (
           <ul className="max-h-96 space-y-1 overflow-y-auto">
             {revisions.map((revision) => (

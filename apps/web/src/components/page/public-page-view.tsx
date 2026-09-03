@@ -21,7 +21,7 @@ export function PublicPageView({
   content: JSONContent;
 }) {
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-dvh bg-bg">
       {coverImage ? (
         <div className="h-48 w-full overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}

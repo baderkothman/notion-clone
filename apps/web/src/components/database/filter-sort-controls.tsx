@@ -30,15 +30,48 @@ export function FilterControl({
   filters: FilterCondition[];
   onChange: (filters: FilterCondition[]) => void;
 }) {
+  // A row's identity for React's `key` — kept in lockstep with `filters` by every
+  // mutation below (add/remove change both arrays at the same index; edits touch
+  // neither). `filters` itself carries no stable id (it's persisted view config, not
+  // worth widening just for this), and index-as-key would misattribute a mid-list row's
+  // focus/DOM state to the wrong condition after removing an earlier one.
+  //
+  // The plain null-guarded lazy-init pattern (fill once, on first render) — the
+  // database-view.tsx call site remounts this component (`key={activeViewId}`-based)
+  // whenever `filters` would otherwise be replaced wholesale from outside (switching
+  // views), so this never needs to reconcile a foreign array; add/remove below are the
+  // only things that ever change its length, and they keep `keysRef` in lockstep
+  // directly. Assigning the ref's initial value via a conditional inside the component
+  // body — rather than passing it straight to `useRef(filters.map(...))` — matters
+  // because a `useRef` argument is evaluated on *every* render even though only the
+  // first result is kept.
+  // react-doctor's `no-ref-current-in-render` still flags this even though it matches
+  // the exact "null-guarded lazy initialization" pattern its own rule doc says is
+  // supported (checked https://www.react.doctor/prompts/rules/react-doctor/no-ref-current-in-render.md
+  // and tried both the `if (ref.current === null)` and `??=` forms — both flagged).
+  // Treated as a confirmed tool false positive rather than moved into an effect, which
+  // would add a real one-render lag to satisfy a static heuristic stricter than its own
+  // documented exception.
+  const keysRef = React.useRef<string[] | null>(null);
+  if (keysRef.current === null) {
+    keysRef.current = filters.map(() => crypto.randomUUID());
+  }
+  // Established above on every render before any of the closures below can run — safe
+  // to treat as always-set from here on (TypeScript can't narrow a ref's type across
+  // separate function bodies, hence the assertion rather than a real null check).
+  const keys = keysRef.current!;
+
   function updateFilter(index: number, patch: Partial<FilterCondition>) {
     onChange(filters.map((f, i) => (i === index ? { ...f, ...patch } : f)));
   }
   function removeFilter(index: number) {
+    keysRef.current = keys.filter((_, i) => i !== index);
     onChange(filters.filter((_, i) => i !== index));
   }
   function addFilter() {
     const first = properties[0];
     if (!first) return;
+    keysRef.current = [...keys, crypto.randomUUID()];
     onChange([...filters, { propertyId: first.id, operator: "equals", value: "" }]);
   }
 
@@ -46,7 +79,7 @@ export function FilterControl({
     <Popover>
       <PopoverTrigger asChild>
         <Button size="sm" variant="ghost">
-          <FilterIcon className="h-3.5 w-3.5" /> Filter{filters.length > 0 ? ` (${filters.length})` : ""}
+          <FilterIcon className="size-3.5" /> Filter{filters.length > 0 ? ` (${filters.length})` : ""}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-96">
@@ -55,11 +88,12 @@ export function FilterControl({
           {filters.map((filter, index) => {
             const property = properties.find((p) => p.id === filter.propertyId);
             return (
-              <div key={index} className="flex items-center gap-1.5">
+              <div key={keys[index]!} className="flex items-center gap-1.5">
                 <select
                   value={filter.propertyId}
                   onChange={(e) => updateFilter(index, { propertyId: e.target.value })}
-                  className="min-w-0 flex-1 rounded-md border border-border bg-surface px-1.5 py-1 text-xs"
+                  aria-label="Filter property"
+                  className="min-w-0 flex-1 rounded-md border border-border bg-surface px-1.5 py-1 text-base"
                 >
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -70,7 +104,8 @@ export function FilterControl({
                 <select
                   value={filter.operator}
                   onChange={(e) => updateFilter(index, { operator: e.target.value as FilterCondition["operator"] })}
-                  className="rounded-md border border-border bg-surface px-1.5 py-1 text-xs"
+                  aria-label="Filter operator"
+                  className="rounded-md border border-border bg-surface px-1.5 py-1 text-base"
                 >
                   {Object.entries(OPERATOR_LABELS).map(([op, label]) => (
                     <option key={op} value={op}>
@@ -82,22 +117,34 @@ export function FilterControl({
                   <input
                     type={property?.type === "number" ? "number" : "text"}
                     value={typeof filter.value === "string" || typeof filter.value === "number" ? filter.value : ""}
-                    onChange={(e) =>
-                      updateFilter(index, {
-                        value: property?.type === "number" ? Number(e.target.value) : e.target.value,
-                      })
-                    }
-                    className="w-20 rounded-md border border-border bg-surface px-1.5 py-1 text-xs"
+                    onChange={(e) => {
+                      if (property?.type !== "number") {
+                        updateFilter(index, { value: e.target.value });
+                        return;
+                      }
+                      // Guard the parse: an empty/in-progress/invalid number input must
+                      // not silently coerce to 0 (`Number("")`) or leak a NaN into the
+                      // stored filter value (`Number("abc")`) — either would corrupt
+                      // the persisted view config and produce a comparison that never
+                      // matches, with no visible error.
+                      const raw = e.target.value;
+                      if (raw === "") return updateFilter(index, { value: "" });
+                      const parsed = Number(raw);
+                      if (Number.isNaN(parsed)) return;
+                      updateFilter(index, { value: parsed });
+                    }}
+                    aria-label="Filter value"
+                    className="w-20 rounded-md border border-border bg-surface px-1.5 py-1 text-base"
                   />
                 ) : null}
                 <button onClick={() => removeFilter(index)} aria-label="Remove filter" className="text-text-faint hover:text-destructive">
-                  <X className="h-3.5 w-3.5" />
+                  <X className="size-3.5" />
                 </button>
               </div>
             );
           })}
           <button onClick={addFilter} className="flex items-center gap-1 text-xs text-text-muted hover:text-text">
-            <Plus className="h-3.5 w-3.5" /> Add filter
+            <Plus className="size-3.5" /> Add filter
           </button>
         </div>
       </PopoverContent>
@@ -114,15 +161,25 @@ export function SortControl({
   sorts: SortCondition[];
   onChange: (sorts: SortCondition[]) => void;
 }) {
+  // See FilterControl's `keysRef` comment above — same reasoning, same lockstep
+  // discipline, same confirmed react-doctor false positive.
+  const keysRef = React.useRef<string[] | null>(null);
+  if (keysRef.current === null) {
+    keysRef.current = sorts.map(() => crypto.randomUUID());
+  }
+  const keys = keysRef.current!;
+
   function updateSort(index: number, patch: Partial<SortCondition>) {
     onChange(sorts.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   }
   function removeSort(index: number) {
+    keysRef.current = keys.filter((_, i) => i !== index);
     onChange(sorts.filter((_, i) => i !== index));
   }
   function addSort() {
     const first = properties[0];
     if (!first) return;
+    keysRef.current = [...keys, crypto.randomUUID()];
     onChange([...sorts, { propertyId: first.id, direction: "asc" }]);
   }
 
@@ -130,18 +187,19 @@ export function SortControl({
     <Popover>
       <PopoverTrigger asChild>
         <Button size="sm" variant="ghost">
-          <ArrowUpDown className="h-3.5 w-3.5" /> Sort{sorts.length > 0 ? ` (${sorts.length})` : ""}
+          <ArrowUpDown className="size-3.5" /> Sort{sorts.length > 0 ? ` (${sorts.length})` : ""}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80">
         <div className="space-y-2">
           {sorts.length === 0 ? <p className="text-sm text-text-faint">No sorts</p> : null}
           {sorts.map((sort, index) => (
-            <div key={index} className="flex items-center gap-1.5">
+            <div key={keys[index]!} className="flex items-center gap-1.5">
               <select
                 value={sort.propertyId}
                 onChange={(e) => updateSort(index, { propertyId: e.target.value })}
-                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-1.5 py-1 text-xs"
+                aria-label="Sort property"
+                className="min-w-0 flex-1 rounded-md border border-border bg-surface px-1.5 py-1 text-base"
               >
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -152,18 +210,19 @@ export function SortControl({
               <select
                 value={sort.direction}
                 onChange={(e) => updateSort(index, { direction: e.target.value as "asc" | "desc" })}
-                className="rounded-md border border-border bg-surface px-1.5 py-1 text-xs"
+                aria-label="Sort direction"
+                className="rounded-md border border-border bg-surface px-1.5 py-1 text-base"
               >
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>
               </select>
               <button onClick={() => removeSort(index)} aria-label="Remove sort" className="text-text-faint hover:text-destructive">
-                <X className="h-3.5 w-3.5" />
+                <X className="size-3.5" />
               </button>
             </div>
           ))}
           <button onClick={addSort} className="flex items-center gap-1 text-xs text-text-muted hover:text-text">
-            <Plus className="h-3.5 w-3.5" /> Add sort
+            <Plus className="size-3.5" /> Add sort
           </button>
         </div>
       </PopoverContent>

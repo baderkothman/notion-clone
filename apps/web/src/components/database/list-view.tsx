@@ -22,7 +22,7 @@ export function ListView({
           onClick={() => onOpenRow(row.id)}
           className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-hover"
         >
-          <span className="shrink-0 text-text-faint">{row.icon ?? <File className="h-3.5 w-3.5" />}</span>
+          <span className="shrink-0 text-text-faint">{row.icon ?? <File className="size-3.5" />}</span>
           <span className="truncate text-sm text-text">{row.title || "Untitled"}</span>
         </button>
       ))}
@@ -31,7 +31,7 @@ export function ListView({
           onClick={onAddRow}
           className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm text-text-faint hover:bg-hover"
         >
-          <Plus className="h-3.5 w-3.5" /> New
+          <Plus className="size-3.5" /> New
         </button>
       ) : null}
     </div>

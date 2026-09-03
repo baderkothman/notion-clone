@@ -12,8 +12,10 @@ export async function restoreRevision(userId: string, pageId: string, revisionId
   const [revision] = await db.select().from(pageRevisions).where(eq(pageRevisions.id, revisionId)).limit(1);
   if (!revision || revision.pageId !== pageId) throw new NotFoundError("Revision");
 
-  const [current] = await db.select().from(documents).where(eq(documents.pageId, pageId)).limit(1);
-  const [page] = await db.select().from(pages).where(eq(pages.id, pageId)).limit(1);
+  const [[current], [page]] = await Promise.all([
+    db.select().from(documents).where(eq(documents.pageId, pageId)).limit(1),
+    db.select().from(pages).where(eq(pages.id, pageId)).limit(1),
+  ]);
   if (!current || !page) throw new NotFoundError("Page");
 
   await db.insert(pageRevisions).values({

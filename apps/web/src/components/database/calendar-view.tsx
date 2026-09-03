@@ -64,7 +64,11 @@ export function CalendarView({
     <div>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium text-text">
-          {month.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
+          {/* Explicit locale (not `undefined`, i.e. "whatever locale this runtime
+            defaults to") — the app's UI text is English-only throughout, and an
+            implicit locale would also risk a hydration mismatch if the server's
+            default locale differs from the browser's. */}
+          {month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
         </h3>
         <div className="flex items-center gap-1">
           <Button
@@ -73,7 +77,7 @@ export function CalendarView({
             aria-label="Previous month"
             onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
           >
-            <ChevronLeft className="h-3.5 w-3.5" />
+            <ChevronLeft className="size-3.5" />
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setMonth(startOfMonth(new Date()))}>
             Today
@@ -84,7 +88,7 @@ export function CalendarView({
             aria-label="Next month"
             onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}
           >
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="size-3.5" />
           </Button>
         </div>
       </div>
@@ -117,14 +121,14 @@ export function CalendarView({
                   <button
                     key={row.id}
                     onClick={() => onOpenRow(row.id)}
-                    className="flex w-full items-center gap-1 truncate rounded bg-selected px-1 py-0.5 text-left text-[11px] text-text hover:opacity-80"
+                    className="flex w-full items-center gap-1 truncate rounded bg-selected px-1 py-0.5 text-left text-xs text-text hover:opacity-80"
                   >
-                    <span className="shrink-0">{row.icon ?? <File className="h-2.5 w-2.5" />}</span>
+                    <span className="shrink-0">{row.icon ?? <File className="size-2.5" />}</span>
                     <span className="truncate">{row.title || "Untitled"}</span>
                   </button>
                 ))}
                 {dayRows.length > 3 ? (
-                  <p className="px-1 text-[10px] text-text-faint">+{dayRows.length - 3} more</p>
+                  <p className="px-1 text-xs text-text-faint">+{dayRows.length - 3} more</p>
                 ) : null}
               </div>
             </div>

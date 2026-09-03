@@ -37,12 +37,12 @@ export function SidebarFooter({
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link href={`/w/${workspaceSlug}/settings/members`}>
-              <Users className="h-3.5 w-3.5" /> Members
+              <Users className="size-3.5" /> Members
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href={`/w/${workspaceSlug}/settings`}>
-              <Settings className="h-3.5 w-3.5" /> Workspace settings
+              <Settings className="size-3.5" /> Workspace settings
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -52,7 +52,7 @@ export function SidebarFooter({
               void signOutAction();
             }}
           >
-            <LogOut className="h-3.5 w-3.5" /> Sign out
+            <LogOut className="size-3.5" /> Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

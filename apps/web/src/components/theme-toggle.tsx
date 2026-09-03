@@ -12,6 +12,15 @@ function applyTheme(pref: ThemePreference) {
   document.documentElement.classList.toggle("dark", isDark);
 }
 
+// Module scope, not rebuilt every render: these are plain, static React elements (no
+// props depending on component state), so there's nothing to gain from recreating the
+// array on each render.
+const OPTIONS: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
+  { value: "light", label: "Light", icon: <Sun className="size-3.5" /> },
+  { value: "dark", label: "Dark", icon: <Moon className="size-3.5" /> },
+  { value: "system", label: "System", icon: <Monitor className="size-3.5" /> },
+];
+
 export function ThemeToggle() {
   const [pref, setPref] = React.useState<ThemePreference>("system");
 
@@ -26,15 +35,9 @@ export function ThemeToggle() {
     applyTheme(next);
   }
 
-  const options: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
-    { value: "light", label: "Light", icon: <Sun className="h-3.5 w-3.5" /> },
-    { value: "dark", label: "Dark", icon: <Moon className="h-3.5 w-3.5" /> },
-    { value: "system", label: "System", icon: <Monitor className="h-3.5 w-3.5" /> },
-  ];
-
   return (
     <div className="inline-flex rounded-md border border-border p-0.5" role="radiogroup" aria-label="Theme">
-      {options.map((option) => (
+      {OPTIONS.map((option) => (
         <button
           key={option.value}
           type="button"

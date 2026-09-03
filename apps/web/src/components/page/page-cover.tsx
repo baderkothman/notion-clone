@@ -24,7 +24,7 @@ export function PageCover({
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button className="mx-8 mt-6 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-faint hover:bg-hover hover:text-text-muted">
-            <ImagePlus className="h-3.5 w-3.5" /> Add cover
+            <ImagePlus className="size-3.5" /> Add cover
           </button>
         </PopoverTrigger>
         <PopoverContent align="start">
@@ -49,8 +49,8 @@ export function PageCover({
   return (
     <div className="group relative h-48 w-full overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={coverImage} alt="" className="h-full w-full object-cover" />
-      <div className="absolute right-4 top-4 hidden gap-1.5 group-hover:flex">
+      <img src={coverImage} alt="" className="size-full object-cover" />
+      <div className="absolute right-4 top-4 flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button className="rounded-md bg-black/50 px-2 py-1 text-xs text-white hover:bg-black/60">Change</button>
@@ -76,7 +76,7 @@ export function PageCover({
           aria-label="Remove cover"
           className="rounded-md bg-black/50 p-1 text-white hover:bg-black/60"
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="size-3.5" />
         </button>
       </div>
     </div>

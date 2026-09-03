@@ -31,7 +31,7 @@ export function FavoritesList({ items, workspaceSlug }: { items: FavoriteItem[];
             )}
           >
             <span className="shrink-0">
-              {item.icon ?? (item.type === "database" ? <FileText className="h-3.5 w-3.5" /> : <File className="h-3.5 w-3.5" />)}
+              {item.icon ?? (item.type === "database" ? <FileText className="size-3.5" /> : <File className="size-3.5" />)}
             </span>
             <span className="truncate">{item.title || "Untitled"}</span>
           </Link>

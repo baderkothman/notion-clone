@@ -40,23 +40,42 @@ export function ShareDialog({
   const [isPublic, setIsPublic] = React.useState(publicShareEnabled);
   const [publicToken, setPublicToken] = React.useState(publicShareToken);
 
+  // A monotonic id, not just a boolean, so that if two refreshes overlap (the
+  // open-triggered effect below and handleInvite's own refresh after a successful
+  // share), an older response landing after a newer one has already started can never
+  // clobber the newer, more current `shares` state with stale data.
+  const shareRequestIdRef = React.useRef(0);
+  const refreshShares = React.useCallback(async () => {
+    const requestId = ++shareRequestIdRef.current;
+    const result = await listSharesAction(pageId);
+    if (requestId !== shareRequestIdRef.current) return;
+    if (result.ok) setShares(result.value);
+  }, [pageId]);
+
   React.useEffect(() => {
     if (!open) return;
-    void listSharesAction(pageId).then((result) => {
-      if (result.ok) setShares(result.value);
-    });
-  }, [open, pageId]);
+    void refreshShares();
+  }, [open, refreshShares]);
 
+  // Same monotonic-id guard as refreshShares above: the Invite button is disabled while
+  // `loading` is true, so under normal use a second submit can't start before this one's
+  // `finally` runs — but guarding it anyway keeps this handler from ever clearing a
+  // newer invite's loading state out from under it, matching this file's own pattern
+  // rather than relying solely on the disabled attribute for correctness.
+  const inviteRequestIdRef = React.useRef(0);
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
+    const requestId = ++inviteRequestIdRef.current;
     setLoading(true);
-    const result = await sharePageAction({ pageId, email, role: "edit" });
-    setLoading(false);
-    if (!result.ok) return toast.error(result.error);
-    setEmail("");
-    const refreshed = await listSharesAction(pageId);
-    if (refreshed.ok) setShares(refreshed.value);
-    toast.success("Shared");
+    try {
+      const result = await sharePageAction({ pageId, email, role: "edit" });
+      if (!result.ok) return toast.error(result.error);
+      setEmail("");
+      await refreshShares();
+      toast.success("Shared");
+    } finally {
+      if (requestId === inviteRequestIdRef.current) setLoading(false);
+    }
   }
 
   async function handleRevoke(userId: string) {
@@ -124,7 +143,7 @@ export function ShareDialog({
                   aria-label={`Remove ${share.email}`}
                   className="rounded p-1 text-text-faint hover:bg-hover hover:text-destructive"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="size-3.5" />
                 </button>
               </li>
             ))}
@@ -134,24 +153,24 @@ export function ShareDialog({
         <div className="mt-4 space-y-3 border-t border-border pt-3">
           <label className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-text">
-              <Globe className="h-3.5 w-3.5 text-text-faint" /> Visible to workspace
+              <Globe className="size-3.5 text-text-faint" /> Visible to workspace
             </span>
             <input
               type="checkbox"
               checked={isWorkspaceVisible}
               onChange={(e) => handleWorkspaceToggle(e.target.checked)}
-              className="h-4 w-4"
+              className="size-4"
             />
           </label>
           <label className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-text">
-              <Link2 className="h-3.5 w-3.5 text-text-faint" /> Share to web
+              <Link2 className="size-3.5 text-text-faint" /> Share to web
             </span>
             <input
               type="checkbox"
               checked={isPublic}
               onChange={(e) => handlePublicToggle(e.target.checked)}
-              className="h-4 w-4"
+              className="size-4"
             />
           </label>
           {isPublic && publicToken ? (

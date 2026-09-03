@@ -3,6 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { toast } from "sonner";
 import {
   ChevronRight,
@@ -20,7 +22,14 @@ import { listChildPagesAction, createPageAction, archivePageAction, duplicatePag
 
 const DRAG_MIME = "application/x-notion-clone-page";
 
-export function PageTreeItem({
+/** Memoized: a page tree can get deep and wide, and `handleDragOver` fires on every
+ * mousemove while dragging — without memoization, dragging over one row would
+ * re-render its entire (potentially large) rendered subtree of already-expanded
+ * children on every one of those events, not just the row being dragged over. This only
+ * pays off because `onArchived` is a stable callback at every call site (see `refresh`
+ * in page-tree.tsx and `refreshChildren` below) and `node` keeps its identity unless
+ * that specific page's own data actually changed. */
+export const PageTreeItem = React.memo(function PageTreeItem({
   node,
   workspaceId,
   workspaceSlug,
@@ -41,15 +50,20 @@ export function PageTreeItem({
   const [children, setChildren] = React.useState<PageTreeNode[] | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [dropPosition, setDropPosition] = React.useState<"before" | "after" | "inside" | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const reducedMotion = useReducedMotion();
 
   async function toggleExpand(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (!expanded && children === null) {
       setLoading(true);
-      const result = await listChildPagesAction(workspaceId, node.id);
-      setLoading(false);
-      if (result.ok) setChildren(result.value);
+      try {
+        const result = await listChildPagesAction(workspaceId, node.id);
+        if (result.ok) setChildren(result.value);
+      } finally {
+        setLoading(false);
+      }
     }
     setExpanded((v) => !v);
   }
@@ -103,6 +117,14 @@ export function PageTreeItem({
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.setData(DRAG_MIME, node.id);
     e.dataTransfer.effectAllowed = "move";
+    setIsDragging(true);
+  }
+
+  // Native drag-and-drop always fires `dragend` on the source element once the drag
+  // finishes — success, cancel, or drop elsewhere — so this is the one place needed to
+  // settle the lift feedback back down, regardless of how the drag ended.
+  function handleDragEnd() {
+    setIsDragging(false);
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -135,65 +157,102 @@ export function PageTreeItem({
     onArchived?.();
   }
 
+  // Stable across re-renders (deps are the props that identify which children to
+  // re-fetch) so passing it as this row's children's own `onArchived` prop doesn't
+  // defeat their memoization every time this row itself re-renders.
+  const refreshChildren = React.useCallback(async () => {
+    const result = await listChildPagesAction(workspaceId, node.id);
+    if (result.ok) setChildren(result.value);
+  }, [workspaceId, node.id]);
+
   return (
     <div>
+      {/* The drop-position indicator (the `shadow-[inset_...]`/`ring` classes below,
+        driven by `dropPosition`) is unchanged — it stays a plain CSS shadow, since that's
+        applied to whichever row the user is dragging *over*, not the one being dragged.
+        The motion here is separate: a lift/settle on this row's own element as *it*
+        starts and stops being dragged, matching the "picked up" feel of Notion's own
+        sidebar. Native HTML5 drag-and-drop already renders its own ghost image during the
+        drag — this scales/dims the source element left behind, not the ghost.
+
+        The native `draggable`/`onDrag*` handlers live on this plain outer `div` rather
+        than directly on the `m.div` below: motion's own props of the same name are typed
+        for its pointer-based `drag` gesture system, not native HTML5 dataTransfer-based
+        drag events, so the two can't share one element.
+
+        `m` (not `motion`) from "motion/react-m": the smaller, tree-shakeable component
+        that reads its animation engine from the `<LazyMotion>` provider in app-shell.tsx
+        instead of bundling it directly — see that file's comment for why. */}
       <div
         draggable
         onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={cn(
-          "group relative flex items-center gap-1 rounded-md py-1 pr-1 text-sm",
-          isActive ? "bg-selected text-text" : "text-text-muted hover:bg-hover hover:text-text",
-          dropPosition === "before" && "shadow-[inset_0_2px_0_0_var(--color-focus)]",
-          dropPosition === "after" && "shadow-[inset_0_-2px_0_0_var(--color-focus)]",
-          dropPosition === "inside" && "ring-1 ring-inset ring-focus",
-        )}
-        style={{ paddingLeft: 8 + depth * 16 }}
       >
-        <button
-          onClick={toggleExpand}
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded hover:bg-border-strong"
-          aria-label={expanded ? "Collapse" : "Expand"}
-          aria-expanded={expanded}
+        <m.div
+          animate={{ scale: isDragging ? 1.02 : 1, opacity: isDragging ? 0.6 : 1 }}
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.12 }}
+          className={cn(
+            "group relative flex items-center gap-1 rounded-md py-1 pr-1 text-sm",
+            isActive ? "bg-selected text-text" : "text-text-muted hover:bg-hover hover:text-text",
+            isDragging && "shadow-md",
+            dropPosition === "before" && "shadow-[inset_0_2px_0_0_var(--color-focus)]",
+            dropPosition === "after" && "shadow-[inset_0_-2px_0_0_var(--color-focus)]",
+            dropPosition === "inside" && "ring-1 ring-inset ring-focus",
+          )}
+          style={{ paddingLeft: 8 + depth * 16 }}
         >
-          <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
-        </button>
-        <Link href={`/w/${workspaceSlug}/p/${node.id}`} className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5">
-          <span className="shrink-0 text-sm">
-            {node.icon ?? (node.type === "database" ? <FileText className="h-3.5 w-3.5" /> : <File className="h-3.5 w-3.5" />)}
-          </span>
-          <span className="truncate">{node.title || "Untitled"}</span>
-        </Link>
-        <div className="hidden items-center gap-0.5 group-hover:flex">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex h-5 w-5 items-center justify-center rounded hover:bg-border-strong" aria-label="Page options">
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onSelect={handleFavorite}>
-                <Star className="h-3.5 w-3.5" /> Add to Favorites
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={handleDuplicate}>
-                <Copy className="h-3.5 w-3.5" /> Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem destructive onSelect={handleArchive}>
-                <Trash2 className="h-3.5 w-3.5" /> Move to Trash
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <button
-            onClick={handleAddChild}
-            className="flex h-5 w-5 items-center justify-center rounded hover:bg-border-strong"
-            aria-label="Add a page inside"
+            onClick={toggleExpand}
+            className="flex size-4 shrink-0 items-center justify-center rounded hover:bg-border-strong"
+            aria-label={expanded ? "Collapse" : "Expand"}
+            aria-expanded={expanded}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
           </button>
-        </div>
+          <Link href={`/w/${workspaceSlug}/p/${node.id}`} className="flex min-w-0 flex-1 items-center gap-1.5 py-0.5">
+            <span className="shrink-0 text-sm">
+              {node.icon ?? (node.type === "database" ? <FileText className="size-3.5" /> : <File className="size-3.5" />)}
+            </span>
+            <span className="truncate">{node.title || "Untitled"}</span>
+          </Link>
+          {/* Always in the DOM (not `hidden`/`display:none`) so it's reachable by Tab
+            and tappable on touch — a `display:none` element can never receive keyboard
+            focus at all. Visible by default (small screens/touch, no reliable hover),
+            and hover-revealed only from `sm:` up, where a pointer that can hover is the
+            norm; `group-focus-within` still reveals it there for keyboard users
+            regardless of screen size. */}
+          <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex size-5 items-center justify-center rounded hover:bg-border-strong" aria-label="Page options">
+                  <MoreHorizontal className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onSelect={handleFavorite}>
+                  <Star className="size-3.5" /> Add to Favorites
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleDuplicate}>
+                  <Copy className="size-3.5" /> Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem destructive onSelect={handleArchive}>
+                  <Trash2 className="size-3.5" /> Move to Trash
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              onClick={handleAddChild}
+              className="flex size-5 items-center justify-center rounded hover:bg-border-strong"
+              aria-label="Add a page inside"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          </div>
+        </m.div>
       </div>
       {expanded ? (
         <div>
@@ -209,10 +268,7 @@ export function PageTreeItem({
                 workspaceId={workspaceId}
                 workspaceSlug={workspaceSlug}
                 depth={depth + 1}
-                onArchived={async () => {
-                  const result = await listChildPagesAction(workspaceId, node.id);
-                  if (result.ok) setChildren(result.value);
-                }}
+                onArchived={refreshChildren}
               />
             ))
           ) : (
@@ -224,4 +280,4 @@ export function PageTreeItem({
       ) : null}
     </div>
   );
-}
+});

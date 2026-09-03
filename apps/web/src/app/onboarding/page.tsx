@@ -9,7 +9,7 @@ export default async function OnboardingPage() {
   if (workspaces.length > 0) redirect(`/w/${workspaces[0]!.slug}`);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm rounded-lg border border-border bg-surface-raised p-6 shadow-[var(--color-shadow)]">
         <h1 className="text-lg font-semibold text-text">Create your workspace</h1>
         <p className="mt-1 text-sm text-text-muted">

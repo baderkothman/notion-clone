@@ -2,8 +2,8 @@
 
 import { requireUserId } from "@/server/session";
 import { runAction } from "@/server/action-result";
-import { requestUpload, confirmUpload, getDownloadUrl, deleteFile } from "@/server/files/upload";
-import type { RequestUploadInput, ConfirmUploadInput, DeleteFileInput } from "@notion-clone/contracts";
+import { requestUpload, confirmUpload, getDownloadUrl } from "@/server/files/upload";
+import type { RequestUploadInput, ConfirmUploadInput } from "@notion-clone/contracts";
 
 export async function requestUploadAction(input: RequestUploadInput) {
   const userId = await requireUserId();
@@ -18,9 +18,4 @@ export async function confirmUploadAction(input: ConfirmUploadInput) {
 export async function getDownloadUrlAction(fileId: string) {
   const userId = await requireUserId();
   return runAction(() => getDownloadUrl(userId, fileId));
-}
-
-export async function deleteFileAction(input: DeleteFileInput) {
-  const userId = await requireUserId();
-  return runAction(() => deleteFile(userId, input));
 }

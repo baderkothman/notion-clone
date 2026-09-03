@@ -11,9 +11,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   if (!invitation || invitation.revokedAt || invitation.acceptedAt || invitation.expiresAt < new Date()) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+      <div className="flex min-h-dvh items-center justify-center bg-bg px-4">
         <EmptyState
-          icon={<MailX className="h-8 w-8" />}
+          icon={<MailX className="size-8" />}
           title="This invitation isn't valid"
           description="It may have expired, already been used, or been revoked. Ask the workspace owner to send a new one."
         />
@@ -22,7 +22,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm rounded-lg border border-border bg-surface-raised p-6 text-center shadow-[var(--color-shadow)]">
         <h1 className="text-lg font-semibold text-text">Join {invitation.workspaceName}</h1>
         <p className="mt-1 text-sm text-text-muted">

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Copy, MoreHorizontal, Star, Trash2 } from "lucide-react";
@@ -15,8 +16,12 @@ import {
 import { Breadcrumbs } from "@/components/page/breadcrumbs";
 import { PageIconPicker } from "@/components/page/page-icon-picker";
 import { PageTitle } from "@/components/page/page-title";
-import { ShareDialog } from "@/components/page/share-dialog";
 import { updatePageIconAction, updatePageTitleAction, archivePageAction, duplicatePageAction, toggleFavoriteAction } from "@/app/(app)/actions/pages";
+
+// Closed-by-default dialog (see the matching comment in page-view.tsx) — this was the
+// other, easy-to-miss static importer of share-dialog.tsx that kept it merged into the
+// route's main chunk even after page-view.tsx switched to a dynamic import.
+const ShareDialog = dynamic(() => import("@/components/page/share-dialog").then((m) => m.ShareDialog));
 
 export function DatabasePageHeader({
   workspaceSlug,
@@ -80,19 +85,19 @@ export function DatabasePageHeader({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="icon" variant="ghost" aria-label="Page menu">
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <MoreHorizontal className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={handleFavorite}>
-                <Star className="h-3.5 w-3.5" /> Add to Favorites
+                <Star className="size-3.5" /> Add to Favorites
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={handleDuplicate}>
-                <Copy className="h-3.5 w-3.5" /> Duplicate
+                <Copy className="size-3.5" /> Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem destructive onSelect={handleArchive}>
-                <Trash2 className="h-3.5 w-3.5" /> Move to Trash
+                <Trash2 className="size-3.5" /> Move to Trash
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

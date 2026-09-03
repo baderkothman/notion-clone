@@ -10,8 +10,7 @@ export default async function SettingsLayout({
   children: React.ReactNode;
   params: Promise<{ workspaceSlug: string }>;
 }) {
-  const { workspaceSlug } = await params;
-  const userId = await requireUserId();
+  const [{ workspaceSlug }, userId] = await Promise.all([params, requireUserId()]);
   const workspace = await getWorkspaceBySlugForUser(userId, workspaceSlug);
   if (!workspace) notFound();
 

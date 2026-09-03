@@ -5,14 +5,13 @@ import { requireUserId } from "@/server/session";
 import { runAction } from "@/server/action-result";
 import { createWorkspace } from "@/server/workspaces/create-workspace";
 import { updateWorkspace } from "@/server/workspaces/update-workspace";
-import { listWorkspaceMembers, listPendingInvitations } from "@/server/workspaces/queries";
+import { listWorkspaceMembers } from "@/server/workspaces/queries";
 import {
   inviteMember,
   updateMemberRole,
   removeMember,
   revokeInvitation,
   acceptInvitation,
-  getInvitationPreview,
 } from "@/server/workspaces/members";
 import { assertWorkspaceMembership } from "@/server/permissions/assert";
 import { auth } from "@notion-clone/auth";
@@ -69,18 +68,6 @@ export async function listWorkspaceMembersAction(workspaceId: string) {
     await assertWorkspaceMembership(userId, workspaceId);
     return listWorkspaceMembers(workspaceId);
   });
-}
-
-export async function listPendingInvitationsAction(workspaceId: string) {
-  const userId = await requireUserId();
-  return runAction(async () => {
-    await assertWorkspaceMembership(userId, workspaceId);
-    return listPendingInvitations(workspaceId);
-  });
-}
-
-export async function getInvitationPreviewAction(token: string) {
-  return runAction(() => getInvitationPreview(token));
 }
 
 export async function acceptInvitationAction(token: string) {
