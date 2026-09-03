@@ -16,8 +16,7 @@ import {
   updateViewAction,
 } from "@/app/(app)/actions/databases";
 import { updatePageTitleAction } from "@/app/(app)/actions/pages";
-import type { DatabaseProperty, DatabaseRow, DatabaseRowValue, DatabaseViewRecord } from "./types";
-import { nextOptionColor } from "./select-editor";
+import { nextOptionColor, type DatabaseProperty, type DatabaseRow, type DatabaseRowValue, type DatabaseViewRecord } from "./types";
 import type { WorkspaceMemberOption } from "./property-cell";
 import { TableView } from "./table-view";
 import { BoardView } from "./board-view";
@@ -51,6 +50,215 @@ function indexValues(values: DatabaseRowValue[]): Map<string, Map<string, unknow
 }
 
 const VIEW_ICONS = { table: Table2, board: Columns3, list: ListIcon, calendar: CalendarDays } as const;
+
+function DatabaseViewTabs({
+  views,
+  activeViewId,
+  editable,
+  onSelect,
+  onAdd,
+}: {
+  views: DatabaseViewRecord[];
+  activeViewId: string | undefined;
+  editable: boolean;
+  onSelect: (viewId: string) => void;
+  onAdd: (type: DatabaseViewRecord["type"]) => void;
+}) {
+  return (
+    <div className="mb-3 flex items-center gap-1 border-b border-border">
+      {views.map((view) => {
+        const Icon = VIEW_ICONS[view.type];
+        return (
+          <button
+            key={view.id}
+            onClick={() => onSelect(view.id)}
+            className={cn(
+              "flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
+              view.id === activeViewId
+                ? "border-text text-text"
+                : "border-transparent text-text-muted hover:text-text",
+            )}
+          >
+            <Icon className="size-3.5" />
+            {view.name}
+          </button>
+        );
+      })}
+      {editable ? (
+        <div className="ml-auto mb-1 flex items-center gap-1">
+          <Button size="sm" variant="ghost" onClick={() => onAdd("table")}>
+            <Plus className="size-3.5" /> Table
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onAdd("board")}>
+            <Plus className="size-3.5" /> Board
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onAdd("list")}>
+            <Plus className="size-3.5" /> List
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onAdd("calendar")}>
+            <Plus className="size-3.5" /> Calendar
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DatabaseViewControls({
+  activeView,
+  activeViewId,
+  properties,
+  editable,
+  onSetGroupBy,
+  onSetDateProperty,
+  onSetFilters,
+  onSetSorts,
+}: {
+  activeView: DatabaseViewRecord | null;
+  activeViewId: string | null;
+  properties: DatabaseProperty[];
+  editable: boolean;
+  onSetGroupBy: (propertyId: string | null) => void;
+  onSetDateProperty: (propertyId: string | null) => void;
+  onSetFilters: (filters: FilterCondition[]) => void;
+  onSetSorts: (sorts: SortCondition[]) => void;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      {activeView?.type === "board" ? (
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <span>Group by</span>
+          <select
+            value={(activeView.config.groupByPropertyId as string | undefined) ?? ""}
+            onChange={(e) => onSetGroupBy(e.target.value || null)}
+            aria-label="Group by"
+            className="rounded-md border border-border bg-surface px-2 py-1 text-base"
+            disabled={!editable}
+          >
+            <option value="">None</option>
+            {properties.reduce<React.ReactNode[]>((options, property) => {
+              if (property.type === "select" || property.type === "status") {
+                options.push(
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                  </option>,
+                );
+              }
+              return options;
+            }, [])}
+          </select>
+        </div>
+      ) : null}
+      {activeView?.type === "calendar" ? (
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <span>Date property</span>
+          <select
+            value={(activeView.config.datePropertyId as string | undefined) ?? ""}
+            onChange={(e) => onSetDateProperty(e.target.value || null)}
+            aria-label="Date property"
+            className="rounded-md border border-border bg-surface px-2 py-1 text-base"
+            disabled={!editable}
+          >
+            <option value="">None</option>
+            {properties.reduce<React.ReactNode[]>((options, property) => {
+              if (property.type === "date") {
+                options.push(
+                  <option key={property.id} value={property.id}>
+                    {property.name}
+                  </option>,
+                );
+              }
+              return options;
+            }, [])}
+          </select>
+        </div>
+      ) : null}
+      <FilterControl
+        // Remounts when the active view changes, so its internal per-row key
+        // tracking starts from a clean slate for each view.
+        key={`filters-${activeViewId}`}
+        properties={properties}
+        filters={(activeView?.config.filters as FilterCondition[] | undefined) ?? []}
+        onChange={onSetFilters}
+      />
+      <SortControl
+        key={`sorts-${activeViewId}`}
+        properties={properties}
+        sorts={(activeView?.config.sorts as SortCondition[] | undefined) ?? []}
+        onChange={onSetSorts}
+      />
+    </div>
+  );
+}
+
+interface ActiveDatabaseViewProps {
+  activeView: DatabaseViewRecord | null;
+  properties: DatabaseProperty[];
+  rows: DatabaseRow[];
+  valueIndex: Map<string, Map<string, unknown>>;
+  getValue: (rowId: string, propertyId: string) => unknown;
+  onSetValue: (rowId: string, propertyId: string, value: unknown) => void;
+  onTitleChange: (rowId: string, title: string) => void;
+  onCreateOption: (propertyId: string, name: string) => Promise<SelectOption>;
+  onAddRow: () => void;
+  onOpenRow: (rowId: string) => void;
+  onRenameProperty: (propertyId: string, name: string) => void;
+  onDeleteProperty: (propertyId: string) => void;
+  members: WorkspaceMemberOption[];
+  workspaceId: string;
+  editable: boolean;
+}
+
+function ActiveDatabaseView(props: ActiveDatabaseViewProps) {
+  const { activeView } = props;
+  const sharedProps = {
+    rows: props.rows,
+    onAddRow: props.onAddRow,
+    onOpenRow: props.onOpenRow,
+    editable: props.editable,
+  };
+
+  switch (activeView?.type) {
+    case "board":
+      return (
+        <BoardView
+          {...sharedProps}
+          properties={props.properties}
+          valueIndex={props.valueIndex}
+          onSetValue={props.onSetValue}
+          groupByPropertyId={(activeView.config.groupByPropertyId as string | null) ?? null}
+          members={props.members}
+          workspaceId={props.workspaceId}
+        />
+      );
+    case "calendar":
+      return (
+        <CalendarView
+          rows={props.rows}
+          getValue={props.getValue}
+          datePropertyId={(activeView.config.datePropertyId as string | null) ?? null}
+          onOpenRow={props.onOpenRow}
+        />
+      );
+    case "list":
+      return <ListView {...sharedProps} />;
+    default:
+      return (
+        <TableView
+          {...sharedProps}
+          properties={props.properties}
+          valueIndex={props.valueIndex}
+          onSetValue={props.onSetValue}
+          onTitleChange={props.onTitleChange}
+          onCreateOption={props.onCreateOption}
+          onRenameProperty={props.onRenameProperty}
+          onDeleteProperty={props.onDeleteProperty}
+          members={props.members}
+          workspaceId={props.workspaceId}
+        />
+      );
+  }
+}
 
 export function DatabaseView({
   workspaceId,
@@ -197,149 +405,40 @@ export function DatabaseView({
 
   return (
     <div className="mx-auto max-w-full px-8 py-6">
-      <div className="mb-3 flex items-center gap-1 border-b border-border">
-        {views.map((view) => {
-          const Icon = VIEW_ICONS[view.type];
-          return (
-            <button
-              key={view.id}
-              onClick={() => setActiveViewId(view.id)}
-              className={cn(
-                "flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm",
-                view.id === activeView?.id
-                  ? "border-text text-text"
-                  : "border-transparent text-text-muted hover:text-text",
-              )}
-            >
-              <Icon className="size-3.5" />
-              {view.name}
-            </button>
-          );
-        })}
-        {editable ? (
-          <div className="ml-auto mb-1 flex items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={() => handleAddView("table")}>
-              <Plus className="size-3.5" /> Table
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => handleAddView("board")}>
-              <Plus className="size-3.5" /> Board
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => handleAddView("list")}>
-              <Plus className="size-3.5" /> List
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => handleAddView("calendar")}>
-              <Plus className="size-3.5" /> Calendar
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {activeView?.type === "board" ? (
-          <div className="flex items-center gap-2 text-sm text-text-muted">
-            <span>Group by</span>
-            <select
-              value={(activeView.config.groupByPropertyId as string | undefined) ?? ""}
-              onChange={(e) => handleSetGroupBy(e.target.value || null)}
-              aria-label="Group by"
-              className="rounded-md border border-border bg-surface px-2 py-1 text-base"
-              disabled={!editable}
-            >
-              <option value="">None</option>
-              {properties.reduce<React.ReactNode[]>((options, p) => {
-                if (p.type === "select" || p.type === "status") {
-                  options.push(
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>,
-                  );
-                }
-                return options;
-              }, [])}
-            </select>
-          </div>
-        ) : null}
-        {activeView?.type === "calendar" ? (
-          <div className="flex items-center gap-2 text-sm text-text-muted">
-            <span>Date property</span>
-            <select
-              value={(activeView.config.datePropertyId as string | undefined) ?? ""}
-              onChange={(e) => handleSetDateProperty(e.target.value || null)}
-              aria-label="Date property"
-              className="rounded-md border border-border bg-surface px-2 py-1 text-base"
-              disabled={!editable}
-            >
-              <option value="">None</option>
-              {properties.reduce<React.ReactNode[]>((options, p) => {
-                if (p.type === "date") {
-                  options.push(
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>,
-                  );
-                }
-                return options;
-              }, [])}
-            </select>
-          </div>
-        ) : null}
-        <FilterControl
-          // Remounts when the active view changes, so its internal per-row key
-          // tracking (see filter-sort-controls.tsx) never has to reconcile a `filters`
-          // array swapped out wholesale from outside — a fresh view's filter set starts
-          // from a clean slate rather than trying to diff against the previous view's.
-          key={`filters-${activeViewId}`}
-          properties={properties}
-          filters={(activeView?.config.filters as FilterCondition[] | undefined) ?? []}
-          onChange={handleSetFilters}
-        />
-        <SortControl
-          key={`sorts-${activeViewId}`}
-          properties={properties}
-          sorts={(activeView?.config.sorts as SortCondition[] | undefined) ?? []}
-          onChange={handleSetSorts}
-        />
-      </div>
-
-      {!activeView || activeView.type === "table" ? (
-        <TableView
-          properties={properties}
-          rows={visibleRows}
-          valueIndex={valueIndex}
-          onSetValue={handleSetValue}
-          onTitleChange={handleTitleChange}
-          onCreateOption={handleCreateOption}
-          onAddRow={handleAddRow}
-          onOpenRow={openRow}
-          onRenameProperty={handleRenameProperty}
-          onDeleteProperty={handleDeleteProperty}
-          members={members}
-          workspaceId={workspaceId}
-          editable={editable}
-        />
-      ) : activeView.type === "board" ? (
-        <BoardView
-          properties={properties}
-          rows={visibleRows}
-          valueIndex={valueIndex}
-          onSetValue={handleSetValue}
-          groupByPropertyId={(activeView.config.groupByPropertyId as string | null) ?? null}
-          onAddRow={handleAddRow}
-          onOpenRow={openRow}
-          members={members}
-          workspaceId={workspaceId}
-          editable={editable}
-        />
-      ) : activeView.type === "calendar" ? (
-        <CalendarView
-          rows={visibleRows}
-          getValue={getValue}
-          datePropertyId={(activeView.config.datePropertyId as string | null) ?? null}
-          onOpenRow={openRow}
-        />
-      ) : (
-        <ListView rows={visibleRows} onAddRow={handleAddRow} onOpenRow={openRow} editable={editable} />
-      )}
+      <DatabaseViewTabs
+        views={views}
+        activeViewId={activeView?.id}
+        editable={editable}
+        onSelect={setActiveViewId}
+        onAdd={handleAddView}
+      />
+      <DatabaseViewControls
+        activeView={activeView}
+        activeViewId={activeViewId}
+        properties={properties}
+        editable={editable}
+        onSetGroupBy={handleSetGroupBy}
+        onSetDateProperty={handleSetDateProperty}
+        onSetFilters={handleSetFilters}
+        onSetSorts={handleSetSorts}
+      />
+      <ActiveDatabaseView
+        activeView={activeView}
+        properties={properties}
+        rows={visibleRows}
+        valueIndex={valueIndex}
+        getValue={getValue}
+        onSetValue={handleSetValue}
+        onTitleChange={handleTitleChange}
+        onCreateOption={handleCreateOption}
+        onAddRow={handleAddRow}
+        onOpenRow={openRow}
+        onRenameProperty={handleRenameProperty}
+        onDeleteProperty={handleDeleteProperty}
+        members={members}
+        workspaceId={workspaceId}
+        editable={editable}
+      />
 
       {editable && (!activeView || activeView.type === "table") ? (
         <div className="mt-2">

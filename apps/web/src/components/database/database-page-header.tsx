@@ -40,12 +40,16 @@ export function DatabasePageHeader({
   breadcrumbTrail: { id: string; title: string; icon: string | null }[];
 }) {
   const router = useRouter();
-  const [icon, setIcon] = React.useState(page.icon);
+  const [iconOverride, setIconOverride] = React.useState<{ pageId: string; value: string | null } | null>(null);
+  const icon = iconOverride?.pageId === page.id ? iconOverride.value : page.icon;
 
   async function handleIconChange(next: string | null) {
-    setIcon(next);
+    setIconOverride({ pageId: page.id, value: next });
     const result = await updatePageIconAction({ pageId: page.id, icon: next });
-    if (!result.ok) toast.error(result.error);
+    if (!result.ok) {
+      setIconOverride(null);
+      toast.error(result.error);
+    }
   }
 
   function handleTitleChange(title: string) {

@@ -67,7 +67,7 @@ function Hero() {
           Your data.
         </h1>
         <p className="mt-5 max-w-md text-pretty text-base leading-relaxed text-text-muted">
-          Notes, docs, databases — and a real calendar, which hosted Notion still doesn&apos;t
+          Notes, docs, databases, plus a real calendar, which hosted Notion still doesn&apos;t
           have. All running on infrastructure you control. One{" "}
           <code className="rounded bg-hover px-1 py-0.5 font-mono-brand text-[0.85em] text-text">docker compose up</code>{" "}
           away from a workspace nothing outside your network can see.
@@ -103,7 +103,7 @@ function CalendarSpotlight() {
             The calendar hosted Notion never built.
           </h2>
           <p className="mt-4 max-w-md text-pretty text-text-muted">
-            Notion still has no native calendar — years in, it&apos;s one of the most
+            Notion still has no native calendar; years in, it&apos;s one of the most
             common gaps people run into. This workspace has one built in, syncing both
             ways with Google Calendar: create an event here, it shows up there; edit it
             there, it shows up here.
@@ -111,7 +111,7 @@ function CalendarSpotlight() {
           <ul className="mt-5 space-y-2 text-sm text-text-muted">
             <li className="flex items-start gap-2">
               <span className="mt-1.5 size-1 shrink-0 rounded-full bg-accent" />
-              Month, week, day, and agenda views — a first-class page, not a database
+              Month, week, day, and agenda views: a first-class page, not a database
               trick.
             </li>
             <li className="flex items-start gap-2">
@@ -120,7 +120,7 @@ function CalendarSpotlight() {
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1.5 size-1 shrink-0 rounded-full bg-accent" />
-              Drag an event to a new day and it reschedules — locally and on Google.
+              Drag an event to a new day and it reschedules, locally and on Google.
             </li>
           </ul>
         </div>
@@ -155,7 +155,7 @@ function ComparisonSection() {
               {COMPARISON.map((row) => (
                 <tr key={row.key} className="border-b border-border last:border-b-0">
                   <td className="px-5 py-3.5 align-top">
-                    <div className="font-mono-brand text-[11px] text-text-faint">{row.key}</div>
+                    <div className="font-mono-brand text-xs text-text-faint">{row.key}</div>
                     <div className="text-text">{row.label}</div>
                   </td>
                   <td className="px-5 py-3.5 align-top text-text-muted">{row.hosted}</td>
@@ -169,7 +169,7 @@ function ComparisonSection() {
         <div className="mt-8 space-y-2 sm:hidden">
           {COMPARISON.map((row) => (
             <div key={row.key} className="rounded-xl border border-border bg-surface p-4">
-              <div className="font-mono-brand text-[11px] text-text-faint">{row.key}</div>
+              <div className="font-mono-brand text-xs text-text-faint">{row.key}</div>
               <div className="text-sm text-text">{row.label}</div>
               <div className="mt-3 flex items-start justify-between gap-3 border-t border-border pt-3 text-sm">
                 <span className="text-text-muted line-through decoration-border-strong">{row.hosted}</span>
@@ -224,4 +224,3 @@ function FeaturesSection() {
     </section>
   );
 }
-

@@ -11,7 +11,7 @@ export function ProductPreview() {
         <span className="size-2.5 rounded-full bg-border-strong" />
         <span className="size-2.5 rounded-full bg-border-strong" />
         <span className="size-2.5 rounded-full bg-border-strong" />
-        <div className="ml-3 flex items-center gap-1.5 rounded-md bg-surface px-2.5 py-1 text-xs text-text-faint">
+        <div className="ml-3 flex items-center gap-1.5 rounded-md bg-surface px-2.5 py-2 text-xs text-text-faint">
           <Globe2 className="size-3" />
           workspace.acme.internal
         </div>
@@ -19,7 +19,7 @@ export function ProductPreview() {
       <div className="flex h-80 sm:h-96">
         <div className="hidden w-52 shrink-0 flex-col border-r border-border bg-sidebar p-3 sm:flex">
           <div className="mb-3 flex items-center gap-1.5 rounded-md px-1.5 py-1">
-            <span className="flex size-5 items-center justify-center rounded bg-text text-[10px] font-semibold text-bg">
+            <span className="flex size-5 items-center justify-center rounded bg-text text-xs font-semibold text-bg">
               A
             </span>
             <span className="text-xs font-medium text-text">Acme</span>

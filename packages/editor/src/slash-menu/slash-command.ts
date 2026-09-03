@@ -68,6 +68,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
             root = createRoot(container);
             root.render(
               createElement(SlashMenuList, {
+                key: props.query,
                 items: props.items,
                 command: (item: SlashMenuItem) => props.command(item),
                 ref: (handle: SlashMenuListHandle | null) => {
@@ -95,6 +96,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
           onUpdate: (props) => {
             root?.render(
               createElement(SlashMenuList, {
+                key: props.query,
                 items: props.items,
                 command: (item: SlashMenuItem) => props.command(item),
                 ref: (handle: SlashMenuListHandle | null) => {

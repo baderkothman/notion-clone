@@ -85,21 +85,24 @@ async function runSyncPass(
           }),
     });
 
+    const writes: Promise<unknown>[] = [];
     for (const event of response.data.items ?? []) {
       if (!event.id) continue;
 
       if (event.status === "cancelled") {
-        // Deleted-on-Google's-side becomes a local soft-delete (not a hard delete —
+        // Deleted-on-Google's-side becomes a local soft-delete (not a hard delete,
         // consistent with how the rest of this app treats deletion, see pages' trash).
-        await db
-          .update(calendarEvents)
-          .set({ deletedAt: new Date(), syncStatus: "synced", syncError: null, updatedAt: new Date() })
-          .where(
-            and(
-              eq(calendarEvents.googleConnectionId, connection.id),
-              eq(calendarEvents.googleEventId, event.id),
+        writes.push(
+          db
+            .update(calendarEvents)
+            .set({ deletedAt: new Date(), syncStatus: "synced", syncError: null, updatedAt: new Date() })
+            .where(
+              and(
+                eq(calendarEvents.googleConnectionId, connection.id),
+                eq(calendarEvents.googleEventId, event.id),
+              ),
             ),
-          );
+        );
         deleted++;
         continue;
       }
@@ -109,15 +112,18 @@ async function runSyncPass(
       // unique constraint — is what makes re-running a sync pass idempotent: the same
       // remote event arriving twice (a page re-fetched, a sync retried after a
       // transient failure) updates the same row instead of creating a duplicate.
-      await db
-        .insert(calendarEvents)
-        .values(row)
-        .onConflictDoUpdate({
-          target: [calendarEvents.googleConnectionId, calendarEvents.googleEventId],
-          set: row,
-        });
+      writes.push(
+        db
+          .insert(calendarEvents)
+          .values(row)
+          .onConflictDoUpdate({
+            target: [calendarEvents.googleConnectionId, calendarEvents.googleEventId],
+            set: row,
+          }),
+      );
       pulled++;
     }
+    await Promise.all(writes);
 
     pageToken = response.data.nextPageToken ?? undefined;
     if (response.data.nextSyncToken) nextSyncToken = response.data.nextSyncToken;

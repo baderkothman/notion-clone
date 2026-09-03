@@ -6,6 +6,20 @@ import { Button, cn } from "@notion-clone/ui";
 import type { DatabaseRow } from "./types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
 
 function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -63,13 +77,7 @@ export function CalendarView({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-text">
-          {/* Explicit locale (not `undefined`, i.e. "whatever locale this runtime
-            defaults to") — the app's UI text is English-only throughout, and an
-            implicit locale would also risk a hydration mismatch if the server's
-            default locale differs from the browser's. */}
-          {month.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-        </h3>
+        <h3 className="text-sm font-medium text-text">{MONTHS[month.getMonth()]} {month.getFullYear()}</h3>
         <div className="flex items-center gap-1">
           <Button
             size="icon"

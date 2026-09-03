@@ -46,6 +46,10 @@ export function colorForIndex(index: number): string {
   return PALETTE[index % PALETTE.length]!;
 }
 
+export function nextOptionColor(existing: SelectOption[]): string {
+  return colorForIndex(existing.length);
+}
+
 export const SELECT_COLOR_CLASSES: Record<string, string> = {
   gray: "bg-hover text-text-muted",
   brown: "bg-[#eee0da] text-[#644a40] dark:bg-[#3a2c26] dark:text-[#d4b8a8]",

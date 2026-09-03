@@ -18,7 +18,7 @@ export default function AboutPage() {
           A workspace that stays out of your way.
         </h1>
         <p className="mt-5 text-pretty text-lg leading-relaxed text-text-muted">
-          Notion is the reason products like this one get built at all — it proved that
+          Notion is the reason products like this one get built at all: it proved that
           notes, docs, and structured data could live in one flexible tool. It also
           proved that flexibility has a cost. This project starts from what Notion got
           right and tries to fix the parts that got heavy along the way.
@@ -61,7 +61,7 @@ export default function AboutPage() {
         </h2>
         <div className="mt-5 space-y-4 text-text-muted">
           <p>
-            This isn&apos;t a rebuild of Notion feature-for-feature — that would just be a
+            This isn&apos;t a rebuild of Notion feature-for-feature; that would just be a
             slower copy of something that already exists. It keeps what Notion got
             right (a real block editor, nested pages, databases that double as trackers)
             and treats the rest as open questions instead of settled defaults.
@@ -70,12 +70,12 @@ export default function AboutPage() {
             The clearest answer so far is the calendar: instead of leaving scheduling to
             a separate app, it&apos;s a first-class page in the workspace, syncing both ways
             with Google Calendar. Not a database view repurposed to look like a
-            calendar — an actual calendar, with the same month/week/day/agenda views
+            calendar: an actual calendar, with the same month/week/day/agenda views
             you&apos;d expect from a tool built around one.
           </p>
           <p>
             Self-hosting is the other half of the answer. A workspace that holds a
-            team&apos;s notes, plans, and now its calendar is worth owning outright — on
+            team&apos;s notes, plans, and now its calendar is worth owning outright, on
             infrastructure you control, with data that never has to leave your network
             unless you decide it should.
           </p>
@@ -88,14 +88,14 @@ export default function AboutPage() {
           <h2 className="mt-3 font-display text-2xl font-semibold text-text">Built like infrastructure, not a demo.</h2>
           <div className="mt-5 space-y-4 text-text-muted">
             <p>
-              Every action — opening a page, inviting a teammate, connecting a Google
-              account — is authorized on the server, every time, regardless of what the
+            Every action (opening a page, inviting a teammate, connecting a Google
+            account) is authorized on the server, every time, regardless of what the
               client claims. Nothing about who can see what is decided by hiding a
               button in the interface.
             </p>
             <p>
-              Secrets that need to be stored — Google&apos;s access and refresh tokens
-              included — are encrypted at rest, not kept in plain text because it was
+            Secrets that need to be stored, including Google&apos;s access and refresh tokens,
+            are encrypted at rest, not kept in plain text because it was
               convenient. The codebase is open: read it, change it, run it on your own
               terms.
             </p>

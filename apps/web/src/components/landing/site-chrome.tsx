@@ -15,7 +15,7 @@ export function SiteHeader() {
           <div className="flex size-7 items-center justify-center rounded-md bg-text text-sm font-semibold text-bg">
             N
           </div>
-          <span className="font-display text-[15px] font-semibold text-text">Notion Clone</span>
+          <span className="font-display text-base font-semibold text-text">Notion Clone</span>
         </Link>
         <nav aria-label="Primary" className="hidden items-center gap-7 text-sm text-text-muted sm:flex">
           <Link href="/#calendar" className="hover:text-text">

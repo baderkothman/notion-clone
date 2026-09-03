@@ -87,9 +87,12 @@ export async function listGoogleCalendars(userId: string): Promise<GoogleCalenda
   const client = await getAuthorizedClient(connection);
   const calendar = google.calendar({ version: "v3", auth: client });
   const { data } = await calendar.calendarList.list();
-  return (data.items ?? [])
-    .filter((item) => item.id)
-    .map((item) => ({ id: item.id!, summary: item.summary ?? item.id!, primary: Boolean(item.primary) }));
+  const calendars: GoogleCalendarListItem[] = [];
+  for (const item of data.items ?? []) {
+    if (!item.id) continue;
+    calendars.push({ id: item.id, summary: item.summary ?? item.id, primary: Boolean(item.primary) });
+  }
+  return calendars;
 }
 
 export async function selectGoogleCalendar(userId: string, input: SelectGoogleCalendarInput): Promise<void> {

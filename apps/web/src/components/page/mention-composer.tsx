@@ -30,7 +30,7 @@ export function MentionComposer({
   autoFocus?: boolean;
 }) {
   const [value, setValue] = React.useState("");
-  const [mentioned, setMentioned] = React.useState<Map<string, string>>(new Map()); // name -> userId
+  const mentionedRef = React.useRef<Map<string, string>>(new Map()); // name -> userId
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -59,7 +59,7 @@ export function MentionComposer({
     const replaced = uptoCursor.replace(/@([\w\s]{0,30})$/, `@${name} `);
     const next = replaced + value.slice(cursor);
     setValue(next);
-    setMentioned((prev) => new Map(prev).set(name, member.userId));
+    mentionedRef.current.set(name, member.userId);
     setMenuOpen(false);
     inputRef.current?.focus();
   }
@@ -69,12 +69,13 @@ export function MentionComposer({
     if (!value.trim()) return;
     // Only mentions whose "@Name " literally still appears in the final text count —
     // if the user deletes the inserted name, the mention shouldn't be recorded.
-    const activeMentionIds = [...mentioned.entries()]
-      .filter(([name]) => value.includes(`@${name}`))
-      .map(([, userId]) => userId);
+    const activeMentionIds: string[] = [];
+    for (const [name, userId] of mentionedRef.current) {
+      if (value.includes(`@${name}`)) activeMentionIds.push(userId);
+    }
     onSubmit(value.trim(), activeMentionIds);
     setValue("");
-    setMentioned(new Map());
+    mentionedRef.current.clear();
   }
 
   return (

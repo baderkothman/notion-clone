@@ -46,7 +46,7 @@ export function CommentIndicators({
       next.push({ blockId, top: box.top - containerBox.top, height: box.height });
     }
     setRects(next);
-  }, [editor, commentedBlockIds]);
+  }, [editor, container, commentedBlockIds]);
 
   React.useEffect(() => {
     recompute();

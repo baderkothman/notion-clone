@@ -4,7 +4,38 @@ import * as React from "react";
 import { Check, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger, cn } from "@notion-clone/ui";
 import { statusCategories, STATUS_CATEGORY_META, type SelectOption, type StatusCategory } from "@notion-clone/contracts";
-import { SELECT_COLOR_CLASSES, colorForIndex } from "./types";
+import { SELECT_COLOR_CLASSES } from "./types";
+
+function OptionRow({
+  option,
+  selected,
+  onToggle,
+}: {
+  option: SelectOption;
+  selected: boolean;
+  onToggle: (optionId: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(option.id)}
+      className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-hover"
+    >
+      <span className="flex min-w-0 items-center gap-1.5">
+        {option.category ? <StatusDot category={option.category} /> : null}
+        <span
+          className={cn(
+            "truncate rounded px-1.5 py-0.5 text-xs",
+            SELECT_COLOR_CLASSES[option.color] ?? SELECT_COLOR_CLASSES.gray,
+          )}
+        >
+          {option.name}
+        </span>
+      </span>
+      {selected ? <Check className="size-3.5 shrink-0 text-accent" /> : null}
+    </button>
+  );
+}
 
 /** Shared editor for select / status (single-choice) and multi_select — Notion's three
  * "pick from a set of colored options, or create a new one inline" property types.
@@ -28,16 +59,19 @@ export function SelectEditor({
 }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const queryInputId = React.useId();
 
   const filtered = options.filter((o) => o.name.toLowerCase().includes(query.trim().toLowerCase()));
   const exactMatch = options.some((o) => o.name.toLowerCase() === query.trim().toLowerCase());
   const isStatus = options.some((o) => o.category);
+  const selectedOptionIds = React.useMemo(() => new Set(value), [value]);
 
   function toggle(optionId: string) {
     if (multi) {
-      onChange(value.includes(optionId) ? value.filter((id) => id !== optionId) : [...value, optionId]);
+      onChange(selectedOptionIds.has(optionId) ? value.filter((id) => id !== optionId) : [...value, optionId]);
     } else {
-      onChange(value.includes(optionId) ? [] : [optionId]);
+      onChange(selectedOptionIds.has(optionId) ? [] : [optionId]);
       setOpen(false);
     }
   }
@@ -50,38 +84,24 @@ export function SelectEditor({
     setQuery("");
   }
 
-  function OptionRow({ option }: { option: SelectOption }) {
-    return (
-      <button
-        key={option.id}
-        onClick={() => toggle(option.id)}
-        className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-hover"
-      >
-        <span className="flex min-w-0 items-center gap-1.5">
-          {option.category ? <StatusDot category={option.category} /> : null}
-          <span
-            className={cn(
-              "truncate rounded px-1.5 py-0.5 text-xs",
-              SELECT_COLOR_CLASSES[option.color] ?? SELECT_COLOR_CLASSES.gray,
-            )}
-          >
-            {option.name}
-          </span>
-        </span>
-        {value.includes(option.id) ? <Check className="size-3.5 shrink-0 text-accent" /> : null}
-      </button>
-    );
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (nextOpen) requestAnimationFrame(() => inputRef.current?.focus());
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="start" className="w-56 p-2">
+        <label htmlFor={queryInputId} className="mb-1 block text-xs font-medium text-text-muted">
+          Find or create an option
+        </label>
         <input
+          ref={inputRef}
+          id={queryInputId}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search or create…"
-          autoFocus
           className="mb-2 w-full rounded-md border border-border bg-surface px-2 py-1 text-base outline-none focus-visible:ring-2 focus-visible:ring-focus"
         />
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
@@ -93,12 +113,14 @@ export function SelectEditor({
                   <div key={category} className="pt-1.5 first:pt-0">
                     <p className="px-2 pb-0.5 text-xs text-text-faint">{STATUS_CATEGORY_META[category].label}</p>
                     {inCategory.map((option) => (
-                      <OptionRow key={option.id} option={option} />
+                      <OptionRow key={option.id} option={option} selected={selectedOptionIds.has(option.id)} onToggle={toggle} />
                     ))}
                   </div>
                 );
               })
-            : filtered.map((option) => <OptionRow key={option.id} option={option} />)}
+            : filtered.map((option) => (
+                <OptionRow key={option.id} option={option} selected={selectedOptionIds.has(option.id)} onToggle={toggle} />
+              ))}
           {query.trim() && !exactMatch ? (
             <button
               onClick={handleCreate}
@@ -142,8 +164,4 @@ export function OptionPill({ option }: { option: SelectOption }) {
       </span>
     </span>
   );
-}
-
-export function nextOptionColor(existing: SelectOption[]): string {
-  return colorForIndex(existing.length);
 }

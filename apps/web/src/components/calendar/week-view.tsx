@@ -6,6 +6,8 @@ import type { CalendarEvent } from "@/server/calendar/queries";
 import { getWeekDays, isSameDay } from "./calendar-date-utils";
 import { EventPill } from "./event-pill";
 
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 /** A 7-day-column layout rather than an hour-by-hour time grid — each column is a
  * small per-day agenda. A pixel-accurate time grid (events positioned by exact
  * minute, overlap-aware) is real, separate engineering scope beyond this pass; see
@@ -48,14 +50,14 @@ export function WeekView({
               )}
             >
               <div>
-                <p className="text-xs text-text-faint">{day.toLocaleDateString("en-US", { weekday: "short" })}</p>
+                <p className="text-xs text-text-faint">{WEEKDAY_LABELS[day.getDay()]}</p>
                 <p className={cn("text-sm font-medium", isToday ? "text-accent" : "text-text")}>{day.getDate()}</p>
               </div>
               <button
                 type="button"
                 onClick={() => onCreateAt(day)}
-                aria-label={`New event on ${day.toLocaleDateString()}`}
-                className="flex size-5 items-center justify-center rounded opacity-0 hover:bg-hover group-hover:opacity-100 group-focus-within:opacity-100"
+                aria-label={`New event on ${day.getFullYear()}-${day.getMonth() + 1}-${day.getDate()}`}
+                className="flex size-5 items-center justify-center rounded opacity-0 hover:bg-hover group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 <Plus className="size-3 text-text-faint" />
               </button>

@@ -330,3 +330,26 @@ quick-start" and "Chat" sections for the full architecture. Summary:
       the initial message window, channel archiving UI (the domain column exists,
       `archivedAt`, but nothing sets it yet), custom recurrence/workflow stages beyond
       the 3 seeded categories, real-time push delivery for chat (documented above).
+
+## React Doctor quality pass
+
+- [x] Resolved all 3 render-purity errors and 98 actionable warnings from the
+      106-diagnostic baseline: stale prop-derived state, async loading cleanup,
+      hydration-safe viewer-local dates, effect dependencies, editor lifecycle/reset
+      behavior, stable list keys/callbacks, avoidable iterations, motion bundle and
+      compositor findings, form labels/focus/mobile text sizing, design-token/copy
+      findings, and the five oversized React functions. The focused design scan now
+      reports zero issues.
+- [x] Reworked the high-complexity surfaces only at cohesive boundaries: event date and
+      footer fields; database tabs, controls, and active-view dispatch; page editor mode;
+      sidebar drag/child-tree behavior; scalar versus configured property cells. This
+      keeps the domain switches explicit while removing the flagged monolithic React
+      functions.
+- [x] Investigated and deliberately left five unsuppressed React Doctor warnings as
+      false positives. The Google callback toast effect handles state created by an
+      off-site OAuth redirect before this component mounts, not an in-app event that can
+      be moved into a click handler. The four plain images are either arbitrary external
+      cover/favicon URLs or short-lived authenticated object-storage URLs; routing them
+      through `next/image` would require an unsafe wildcard remote allowlist, lose auth
+      headers, or couple the framework-neutral editor package to Next. No rule disables,
+      inline React Doctor suppressions, or loosened types were added.

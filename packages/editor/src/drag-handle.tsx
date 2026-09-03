@@ -73,16 +73,16 @@ export function DragHandle({
       parent.removeEventListener("mousemove", onMouseMove);
       parent.removeEventListener("mouseleave", onMouseLeave);
     };
-  }, [editor]);
+  }, [editor, container]);
 
-  function findBlockPos(blockId: string): { pos: number; node: import("@tiptap/pm/model").Node } | null {
+  const findBlockPos = React.useCallback((blockId: string): { pos: number; node: import("@tiptap/pm/model").Node } | null => {
     let found: { pos: number; node: import("@tiptap/pm/model").Node } | null = null;
     editor.state.doc.forEach((node, offset) => {
       if (found) return;
       if (node.attrs?.blockId === blockId) found = { pos: offset, node };
     });
     return found;
-  }
+  }, [editor]);
 
   function handleAdd() {
     if (!hoveredId) return;
@@ -138,8 +138,7 @@ export function DragHandle({
       dom.removeEventListener("dragover", onDragOver);
       dom.removeEventListener("drop", onDrop);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor]);
+  }, [editor, container, findBlockPos]);
 
   if (!hoveredId || !rect) return null;
 

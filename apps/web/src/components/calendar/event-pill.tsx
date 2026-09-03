@@ -3,12 +3,7 @@
 import { Link2 } from "lucide-react";
 import { cn } from "@notion-clone/ui";
 import type { CalendarEvent } from "@/server/calendar/queries";
-
-/** Local time label — "9:30 AM", no leading zero, matching how a person actually
- * reads a clock face rather than 24-hour/zero-padded formatting. */
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
+import { LocalDateText } from "@/components/local-date-text";
 
 /**
  * One event's chip — used in month/week/day/agenda views alike. The small `Link2` mark
@@ -48,7 +43,11 @@ export function EventPill({
         compact && "py-0",
       )}
     >
-      {!event.allDay ? <span className="shrink-0 tabular-nums opacity-80">{formatTime(event.startAt)}</span> : null}
+      {!event.allDay ? (
+        <span className="shrink-0 tabular-nums opacity-80">
+          <LocalDateText value={event.startAt} format="time" />
+        </span>
+      ) : null}
       <span className="truncate font-medium">{event.title}</span>
       {isSynced ? <Link2 className="ml-auto size-2.5 shrink-0 opacity-60" aria-label="Synced with Google Calendar" /> : null}
     </button>

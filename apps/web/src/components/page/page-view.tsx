@@ -68,6 +68,33 @@ function useDebouncedCallback<Args extends unknown[]>(fn: (...args: Args) => voi
   );
 }
 
+function PageEditorSurface({
+  mode,
+  editorProps,
+}: {
+  mode: "plain" | "collab" | "loading";
+  editorProps: React.ComponentProps<typeof BlockEditor>;
+}) {
+  if (mode === "loading") {
+    return (
+      // Brief and bounded by PageView's collaboration timeout while the Y.Doc
+      // confirms that it reflects the server's content.
+      <div className="animate-pulse space-y-2" aria-hidden="true">
+        <div className="h-4 w-2/3 rounded bg-hover" />
+        <div className="h-4 w-1/2 rounded bg-hover" />
+      </div>
+    );
+  }
+
+  return <BlockEditor {...editorProps} />;
+}
+
+function resolveEditorMode(realtimeEnabled: boolean, hasSyncedOnce: boolean, timedOut: boolean) {
+  if (!realtimeEnabled || timedOut) return "plain" as const;
+  if (hasSyncedOnce) return "collab" as const;
+  return "loading" as const;
+}
+
 export function PageView({
   workspaceId,
   workspaceSlug,
@@ -136,13 +163,7 @@ export function PageView({
     return () => clearTimeout(timeout);
   }, [realtimeEnabled, collaboration.hasSyncedOnce]);
 
-  const editorMode: "plain" | "collab" | "loading" = !realtimeEnabled
-    ? "plain"
-    : collaboration.hasSyncedOnce
-      ? "collab"
-      : collabTimedOut
-        ? "plain"
-        : "loading";
+  const editorMode = resolveEditorMode(realtimeEnabled, collaboration.hasSyncedOnce, collabTimedOut);
 
   // Once in collab mode, autosave stands down only while actually, provenly connected
   // right now — never merely "collab mode is active" — so a mid-session disconnect
@@ -201,45 +222,33 @@ export function PageView({
               />
             </div>
             <div className="relative mt-4">
-              {editorMode === "loading" ? (
-                // Brief and bounded (see the effect above) — waiting to confirm the
-                // Y.Doc actually reflects the server's content before trusting it as an
-                // editing surface. Not shown at all once realtime is unavailable or
-                // already synced, so this never appears for most page loads.
-                <div className="animate-pulse space-y-2" aria-hidden="true">
-                  <div className="h-4 w-2/3 rounded bg-hover" />
-                  <div className="h-4 w-1/2 rounded bg-hover" />
-                </div>
-              ) : (
-                <BlockEditor
-                  // A clean remount both if the page being viewed changes (defensive —
-                  // see use-collaboration.ts's doc comment) and, deliberately, on the
-                  // one-time "loading" -> "plain"/"collab" transition: nothing was
-                  // editable during "loading", so there's no risk of losing in-flight
-                  // keystrokes the way a mid-typing remount would carry.
-                  key={`${page.id}:${editorMode}`}
-                  content={content}
-                  editable={editable}
-                  onUpdate={(json) => {
+              <PageEditorSurface
+                // Remount when switching page or editor mode; the loading surface is
+                // not editable, so the one-time mode transition cannot lose input.
+                key={`${page.id}:${editorMode}`}
+                mode={editorMode}
+                editorProps={{
+                  content,
+                  editable,
+                  onUpdate: (json) => {
                     if (collabOwnsSaving) return;
                     scheduleSave(json);
-                  }}
-                  onEditorReady={(editor) => {
+                  },
+                  onEditorReady: (editor) => {
                     editorRef.current = editor;
-                  }}
-                  onNavigateToPage={(pageId) => router.push(`/w/${workspaceSlug}/p/${pageId}`)}
-                  onCreateChildPage={handleCreateChildPage}
-                  fileService={fileService}
-                  embedService={editorEmbedService}
-                  onCommentBlock={comments.openForBlock}
-                  commentedBlockIds={comments.commentedBlockIds}
-                  collaboration={
+                  },
+                  onNavigateToPage: (pageId) => router.push(`/w/${workspaceSlug}/p/${pageId}`),
+                  onCreateChildPage: handleCreateChildPage,
+                  fileService,
+                  embedService: editorEmbedService,
+                  onCommentBlock: comments.openForBlock,
+                  commentedBlockIds: comments.commentedBlockIds,
+                  collaboration:
                     editorMode === "collab" && collaboration.ydoc
                       ? { document: collaboration.ydoc, provider: collaboration.provider ?? undefined, user: collabUser }
-                      : undefined
-                  }
-                />
-              )}
+                      : undefined,
+                }}
+              />
             </div>
           </div>
         </div>

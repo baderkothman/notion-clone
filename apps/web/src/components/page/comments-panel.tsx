@@ -6,6 +6,7 @@ import * as m from "motion/react-m";
 import { Check, MessageSquare, RotateCcw, X } from "lucide-react";
 import { Avatar, cn } from "@notion-clone/ui";
 import { MentionComposer, type MemberOption } from "./mention-composer";
+import { LocalDateText } from "@/components/local-date-text";
 
 export interface Comment {
   id: string;
@@ -37,7 +38,9 @@ function CommentRow({
       <div className="flex items-center gap-2">
         <Avatar name={comment.authorName ?? "?"} src={comment.authorImage} size={20} />
         <span className="text-xs font-medium text-text">{comment.authorName}</span>
-        <span className="text-xs text-text-faint">{new Date(comment.createdAt).toLocaleDateString()}</span>
+        <span className="text-xs text-text-faint">
+          <LocalDateText value={comment.createdAt} format="date" />
+        </span>
       </div>
       <p className="mt-1.5 text-sm text-text">{comment.body}</p>
       <div className="mt-1.5 flex items-center gap-3">
@@ -108,9 +111,9 @@ export function CommentsPanel({
     // `<LazyMotion>` provider in app-shell.tsx rather than bundling it directly here —
     // see that file's comment for why this matters on this route in particular.
     <m.aside
-      initial={reducedMotion ? false : { x: 12, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={reducedMotion ? undefined : { x: 12, opacity: 0 }}
+      initial={reducedMotion ? false : { transform: "translateX(12px)", opacity: 0 }}
+      animate={{ transform: "translateX(0px)", opacity: 1 }}
+      exit={reducedMotion ? undefined : { transform: "translateX(12px)", opacity: 0 }}
       transition={reducedMotion ? { duration: 0 } : { duration: 0.16, ease: "easeOut" }}
       className="flex h-full w-80 shrink-0 flex-col border-l border-border"
     >

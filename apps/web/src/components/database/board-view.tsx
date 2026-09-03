@@ -129,6 +129,10 @@ export function BoardView({
   // (the "No <property>" column, for rows that haven't set this property), so it can't
   // double as the "nothing" sentinel the way it could for a simpler list.
   const [dragOverColumnId, setDragOverColumnId] = React.useState<string | null | undefined>(undefined);
+  const handleCardDragEnd = React.useCallback(() => {
+    setDraggingRowId(null);
+    setDragOverColumnId(undefined);
+  }, []);
 
   if (!groupProperty) {
     return (
@@ -200,10 +204,7 @@ export function BoardView({
                   workspaceId={workspaceId}
                   draggable={editable}
                   onCardDragStart={setDraggingRowId}
-                  onCardDragEnd={() => {
-                    setDraggingRowId(null);
-                    setDragOverColumnId(undefined);
-                  }}
+                  onCardDragEnd={handleCardDragEnd}
                   isDragging={draggingRowId === row.id}
                 />
               ))}

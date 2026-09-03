@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@notion-clone/ui";
 import type { GoogleIntegrationStatus } from "@/server/integrations/google-calendar/status";
+import { LocalDateText } from "@/components/local-date-text";
 import {
   disconnectGoogleAction,
   syncGoogleCalendarAction,
@@ -59,7 +60,7 @@ export function GoogleIntegrationCard({
       <div className="rounded-lg border border-border bg-surface p-5">
         <p className="text-sm font-medium text-text">Google Calendar</p>
         <p className="mt-1 text-sm text-text-muted">
-          Not available on this deployment — an administrator needs to set{" "}
+          Not available on this deployment: an administrator needs to set{" "}
           <code className="rounded bg-hover px-1 py-0.5 text-xs">GOOGLE_CLIENT_ID</code> and{" "}
           <code className="rounded bg-hover px-1 py-0.5 text-xs">GOOGLE_CLIENT_SECRET</code>. See
           .env.example.
@@ -118,10 +119,13 @@ export function GoogleIntegrationCard({
   async function handleOpenCalendarPicker() {
     if (calendars) return;
     setLoadingCalendars(true);
-    const result = await listGoogleCalendarsAction();
-    setLoadingCalendars(false);
-    if (!result.ok) return toast.error(result.error);
-    setCalendars(result.value);
+    try {
+      const result = await listGoogleCalendarsAction();
+      if (!result.ok) return toast.error(result.error);
+      setCalendars(result.value);
+    } finally {
+      setLoadingCalendars(false);
+    }
   }
 
   async function handleSelectCalendar(googleCalendarId: string) {
@@ -155,9 +159,11 @@ export function GoogleIntegrationCard({
             <p className="mt-1 text-sm text-destructive">{status.lastErrorMessage}</p>
           ) : null}
           <p className="mt-1 text-xs text-text-faint">
-            {status.lastSyncedAt
-              ? `Last synced ${new Date(status.lastSyncedAt).toLocaleString()}`
-              : "Not synced yet"}
+            {status.lastSyncedAt ? (
+              <>Last synced <LocalDateText value={status.lastSyncedAt} format="dateTime" /></>
+            ) : (
+              "Not synced yet"
+            )}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -208,7 +214,7 @@ export function GoogleIntegrationCard({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-72">
             {loadingCalendars ? (
-              <div className="flex items-center gap-2 px-2 py-2 text-sm text-text-muted">
+              <div className="flex items-center gap-2 p-2 text-sm text-text-muted">
                 <Loader2 className="size-3.5 animate-spin" /> Loading calendars…
               </div>
             ) : calendars && calendars.length > 0 ? (
@@ -221,7 +227,7 @@ export function GoogleIntegrationCard({
                 </DropdownMenuItem>
               ))
             ) : (
-              <div className="px-2 py-2 text-sm text-text-muted">No calendars found.</div>
+              <div className="p-2 text-sm text-text-muted">No calendars found.</div>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

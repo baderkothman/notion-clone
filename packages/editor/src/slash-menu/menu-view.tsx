@@ -14,8 +14,6 @@ export const SlashMenuList = React.forwardRef<
 >(({ items, command }, ref) => {
   const [selected, setSelected] = React.useState(0);
 
-  React.useEffect(() => setSelected(0), [items]);
-
   React.useImperativeHandle(ref, () => ({
     onKeyDown: (event) => {
       if (event.key === "ArrowDown") {

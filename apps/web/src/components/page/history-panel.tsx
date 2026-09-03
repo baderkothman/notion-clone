@@ -4,6 +4,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, Button } from "@notion-clone/ui";
 import { listRevisionsAction, restoreRevisionAction } from "@/app/(app)/actions/history";
+import { LocalDateText } from "@/components/local-date-text";
 
 interface Revision {
   id: string;
@@ -58,7 +59,7 @@ export function HistoryPanel({
                 <div className="min-w-0">
                   <p className="truncate text-sm text-text">{revision.title || "Untitled"}</p>
                   <p className="text-xs text-text-faint">
-                    {new Date(revision.createdAt).toLocaleString()}
+                    <LocalDateText value={revision.createdAt} format="dateTime" />
                     {revision.createdByName ? ` · ${revision.createdByName}` : ""}
                   </p>
                 </div>

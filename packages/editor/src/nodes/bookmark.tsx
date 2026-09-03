@@ -19,6 +19,7 @@ function BookmarkView({ node, updateAttributes, extension }: NodeViewProps) {
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const inputId = React.useId();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,13 +41,19 @@ function BookmarkView({ node, updateAttributes, extension }: NodeViewProps) {
       <NodeViewWrapper contentEditable={false} className="my-1">
         <form onSubmit={handleSubmit} className="flex items-center gap-2 rounded-md border border-border p-2">
           <Link2 className="h-4 w-4 shrink-0 text-text-faint" />
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Paste a link…"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-text-faint"
-            autoFocus
-          />
+          <div className="min-w-0 flex-1">
+            <label htmlFor={inputId} className="block text-xs font-medium text-text-muted">
+              Bookmark URL
+            </label>
+            <input
+              id={inputId}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="https://example.com"
+              className="w-full bg-transparent text-base outline-none placeholder:text-text-faint sm:text-sm"
+              autoFocus
+            />
+          </div>
           <button
             type="submit"
             disabled={loading}

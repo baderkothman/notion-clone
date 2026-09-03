@@ -38,10 +38,13 @@ export function useComments(pageId: string, workspaceId: string) {
     });
   }, [refresh, workspaceId]);
 
-  const commentedBlockIds = React.useMemo(
-    () => new Set(comments.filter((c) => c.blockId && !c.resolvedAt).map((c) => c.blockId!)),
-    [comments],
-  );
+  const commentedBlockIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    for (const comment of comments) {
+      if (comment.blockId && !comment.resolvedAt) ids.add(comment.blockId);
+    }
+    return ids;
+  }, [comments]);
 
   function openForBlock(blockId: string) {
     setOpen(true);

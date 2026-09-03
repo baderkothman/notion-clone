@@ -21,6 +21,105 @@ import type { PageTreeNode } from "@notion-clone/contracts";
 import { listChildPagesAction, createPageAction, archivePageAction, duplicatePageAction, movePageAction, toggleFavoriteAction } from "@/app/(app)/actions/pages";
 
 const DRAG_MIME = "application/x-notion-clone-page";
+type DropPosition = "before" | "after" | "inside";
+
+function moveInputForDrop(draggedId: string, node: PageTreeNode, position: DropPosition) {
+  if (position === "inside") return { pageId: draggedId, newParentId: node.id };
+  if (position === "after") {
+    return { pageId: draggedId, newParentId: node.parentId, afterSortKey: node.sortKey };
+  }
+  return { pageId: draggedId, newParentId: node.parentId, beforeSortKey: node.sortKey };
+}
+
+function usePageDrag(node: PageTreeNode, onMoved?: () => void) {
+  const [dropPosition, setDropPosition] = React.useState<DropPosition | null>(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+
+  function onDragStart(e: React.DragEvent) {
+    e.dataTransfer.setData(DRAG_MIME, node.id);
+    e.dataTransfer.effectAllowed = "move";
+    setIsDragging(true);
+  }
+
+  function onDragOver(e: React.DragEvent) {
+    if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    setDropPosition(ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "inside");
+  }
+
+  async function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData(DRAG_MIME);
+    const position = dropPosition;
+    setDropPosition(null);
+    if (!draggedId || draggedId === node.id || !position) return;
+
+    const result = await movePageAction(moveInputForDrop(draggedId, node, position));
+    if (!result.ok) return toast.error(result.error);
+    onMoved?.();
+  }
+
+  return {
+    dropPosition,
+    isDragging,
+    handlers: {
+      onDragStart,
+      onDragEnd: () => setIsDragging(false),
+      onDragOver,
+      onDragLeave: () => setDropPosition(null),
+      onDrop,
+    },
+  };
+}
+
+function PageTreeChildren({
+  expanded,
+  loading,
+  childNodes,
+  workspaceId,
+  workspaceSlug,
+  depth,
+  onArchived,
+}: {
+  expanded: boolean;
+  loading: boolean;
+  childNodes: PageTreeNode[] | null;
+  workspaceId: string;
+  workspaceSlug: string;
+  depth: number;
+  onArchived: () => void;
+}) {
+  if (!expanded) return null;
+
+  if (loading) {
+    return (
+      <div className="py-1 text-xs text-text-faint" style={{ paddingLeft: 8 + (depth + 1) * 16 }}>
+        Loading…
+      </div>
+    );
+  }
+
+  if (!childNodes?.length) {
+    return (
+      <div className="py-1 text-xs text-text-faint" style={{ paddingLeft: 8 + (depth + 1) * 16 }}>
+        No pages inside
+      </div>
+    );
+  }
+
+  return childNodes.map((child) => (
+    <PageTreeItem
+      key={child.id}
+      node={child}
+      workspaceId={workspaceId}
+      workspaceSlug={workspaceSlug}
+      depth={depth + 1}
+      onArchived={onArchived}
+    />
+  ));
+}
 
 /** Memoized: a page tree can get deep and wide, and `handleDragOver` fires on every
  * mousemove while dragging — without memoization, dragging over one row would
@@ -49,8 +148,7 @@ export const PageTreeItem = React.memo(function PageTreeItem({
   const [expanded, setExpanded] = React.useState(false);
   const [children, setChildren] = React.useState<PageTreeNode[] | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const [dropPosition, setDropPosition] = React.useState<"before" | "after" | "inside" | null>(null);
-  const [isDragging, setIsDragging] = React.useState(false);
+  const { dropPosition, isDragging, handlers: dragHandlers } = usePageDrag(node, onArchived);
   const reducedMotion = useReducedMotion();
 
   async function toggleExpand(e: React.MouseEvent) {
@@ -114,49 +212,6 @@ export const PageTreeItem = React.memo(function PageTreeItem({
     toast.success("Added to Favorites");
   }
 
-  function handleDragStart(e: React.DragEvent) {
-    e.dataTransfer.setData(DRAG_MIME, node.id);
-    e.dataTransfer.effectAllowed = "move";
-    setIsDragging(true);
-  }
-
-  // Native drag-and-drop always fires `dragend` on the source element once the drag
-  // finishes — success, cancel, or drop elsewhere — so this is the one place needed to
-  // settle the lift feedback back down, regardless of how the drag ended.
-  function handleDragEnd() {
-    setIsDragging(false);
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
-    e.preventDefault();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = (e.clientY - rect.top) / rect.height;
-    setDropPosition(ratio < 0.25 ? "before" : ratio > 0.75 ? "after" : "inside");
-  }
-
-  function handleDragLeave() {
-    setDropPosition(null);
-  }
-
-  async function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const draggedId = e.dataTransfer.getData(DRAG_MIME);
-    const position = dropPosition;
-    setDropPosition(null);
-    if (!draggedId || draggedId === node.id || !position) return;
-
-    const result = await movePageAction(
-      position === "inside"
-        ? { pageId: draggedId, newParentId: node.id }
-        : position === "after"
-          ? { pageId: draggedId, newParentId: node.parentId, afterSortKey: node.sortKey }
-          : { pageId: draggedId, newParentId: node.parentId, beforeSortKey: node.sortKey },
-    );
-    if (!result.ok) return toast.error(result.error);
-    onArchived?.();
-  }
-
   // Stable across re-renders (deps are the props that identify which children to
   // re-fetch) so passing it as this row's children's own `onArchived` prop doesn't
   // defeat their memoization every time this row itself re-renders.
@@ -183,16 +238,9 @@ export const PageTreeItem = React.memo(function PageTreeItem({
         `m` (not `motion`) from "motion/react-m": the smaller, tree-shakeable component
         that reads its animation engine from the `<LazyMotion>` provider in app-shell.tsx
         instead of bundling it directly — see that file's comment for why. */}
-      <div
-        draggable
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
+      <div draggable {...dragHandlers}>
         <m.div
-          animate={{ scale: isDragging ? 1.02 : 1, opacity: isDragging ? 0.6 : 1 }}
+          animate={{ transform: isDragging ? "scale(1.02)" : "scale(1)", opacity: isDragging ? 0.6 : 1 }}
           transition={reducedMotion ? { duration: 0 } : { duration: 0.12 }}
           className={cn(
             "group relative flex items-center gap-1 rounded-md py-1 pr-1 text-sm",
@@ -254,30 +302,15 @@ export const PageTreeItem = React.memo(function PageTreeItem({
           </div>
         </m.div>
       </div>
-      {expanded ? (
-        <div>
-          {loading ? (
-            <div className="py-1 text-xs text-text-faint" style={{ paddingLeft: 8 + (depth + 1) * 16 }}>
-              Loading…
-            </div>
-          ) : children && children.length > 0 ? (
-            children.map((child) => (
-              <PageTreeItem
-                key={child.id}
-                node={child}
-                workspaceId={workspaceId}
-                workspaceSlug={workspaceSlug}
-                depth={depth + 1}
-                onArchived={refreshChildren}
-              />
-            ))
-          ) : (
-            <div className="py-1 text-xs text-text-faint" style={{ paddingLeft: 8 + (depth + 1) * 16 }}>
-              No pages inside
-            </div>
-          )}
-        </div>
-      ) : null}
+      <PageTreeChildren
+        expanded={expanded}
+        loading={loading}
+        childNodes={children}
+        workspaceId={workspaceId}
+        workspaceSlug={workspaceSlug}
+        depth={depth}
+        onArchived={refreshChildren}
+      />
     </div>
   );
 });

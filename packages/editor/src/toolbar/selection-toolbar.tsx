@@ -40,6 +40,7 @@ export function SelectionToolbar({ editor }: { editor: Editor }) {
   const [showColors, setShowColors] = React.useState(false);
   const [linkOpen, setLinkOpen] = React.useState(false);
   const [linkValue, setLinkValue] = React.useState("");
+  const linkInputId = React.useId();
 
   return (
     <BubbleMenu
@@ -102,14 +103,18 @@ export function SelectionToolbar({ editor }: { editor: Editor }) {
                 }
                 setLinkOpen(false);
               }}
-              className="absolute left-0 top-9 z-10 flex w-56 items-center gap-1 rounded-md border border-border bg-surface-raised p-1.5 shadow-[var(--color-shadow)]"
+              className="absolute left-0 top-9 z-10 w-56 rounded-md border border-border bg-surface-raised p-1.5 shadow-[var(--color-shadow)]"
             >
+              <label htmlFor={linkInputId} className="mb-1 block px-1 text-xs font-medium text-text-muted">
+                Link URL
+              </label>
               <input
+                id={linkInputId}
                 autoFocus
                 value={linkValue}
                 onChange={(e) => setLinkValue(e.target.value)}
-                placeholder="Paste a link…"
-                className="min-w-0 flex-1 bg-transparent px-1 text-xs outline-none"
+                placeholder="https://example.com"
+                className="w-full bg-transparent px-1 text-base outline-none sm:text-xs"
               />
             </form>
           ) : null}

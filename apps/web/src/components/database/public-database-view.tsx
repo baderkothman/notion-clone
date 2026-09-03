@@ -106,7 +106,8 @@ function ReadOnlyValue({ property, value }: { property: DatabaseProperty; value:
     }
     case "multi_select": {
       const options = selectOptions(property);
-      const selected = Array.isArray(value) ? options.filter((o) => value.includes(o.id)) : [];
+      const selectedIds = new Set(Array.isArray(value) ? value : []);
+      const selected = options.filter((option) => selectedIds.has(option.id));
       return (
         <span className="flex flex-wrap gap-1">
           {selected.map((o) => (

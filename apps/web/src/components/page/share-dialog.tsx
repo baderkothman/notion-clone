@@ -36,9 +36,21 @@ export function ShareDialog({
   const [shares, setShares] = React.useState<ShareRow[]>([]);
   const [email, setEmail] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [isWorkspaceVisible, setIsWorkspaceVisible] = React.useState(visibility === "workspace");
-  const [isPublic, setIsPublic] = React.useState(publicShareEnabled);
-  const [publicToken, setPublicToken] = React.useState(publicShareToken);
+  const [workspaceVisibilityOverride, setWorkspaceVisibilityOverride] = React.useState<{
+    pageId: string;
+    visible: boolean;
+  } | null>(null);
+  const [publicOverride, setPublicOverride] = React.useState<{
+    pageId: string;
+    enabled: boolean;
+    token: string | null;
+  } | null>(null);
+  const isWorkspaceVisible =
+    workspaceVisibilityOverride?.pageId === pageId
+      ? workspaceVisibilityOverride.visible
+      : visibility === "workspace";
+  const isPublic = publicOverride?.pageId === pageId ? publicOverride.enabled : publicShareEnabled;
+  const publicToken = publicOverride?.pageId === pageId ? publicOverride.token : publicShareToken;
 
   // A monotonic id, not just a boolean, so that if two refreshes overlap (the
   // open-triggered effect below and handleInvite's own refresh after a successful
@@ -84,24 +96,30 @@ export function ShareDialog({
     setShares((prev) => prev.filter((s) => s.userId !== userId));
   }
 
+  const workspaceVisibilityRequestIdRef = React.useRef(0);
   async function handleWorkspaceToggle(checked: boolean) {
-    setIsWorkspaceVisible(checked);
+    const requestId = ++workspaceVisibilityRequestIdRef.current;
+    setWorkspaceVisibilityOverride({ pageId, visible: checked });
     const result = await setPageVisibilityAction({ pageId, visibility: checked ? "workspace" : "private" });
+    if (requestId !== workspaceVisibilityRequestIdRef.current) return;
     if (!result.ok) {
-      setIsWorkspaceVisible(!checked);
+      setWorkspaceVisibilityOverride(null);
       toast.error(result.error);
     }
   }
 
+  const publicShareRequestIdRef = React.useRef(0);
   async function handlePublicToggle(checked: boolean) {
-    setIsPublic(checked);
+    const requestId = ++publicShareRequestIdRef.current;
+    setPublicOverride({ pageId, enabled: checked, token: publicToken });
     const result = await setPublicShareAction({ pageId, enabled: checked });
+    if (requestId !== publicShareRequestIdRef.current) return;
     if (!result.ok) {
-      setIsPublic(!checked);
+      setPublicOverride(null);
       toast.error(result.error);
       return;
     }
-    setPublicToken(result.value.publicShareToken);
+    setPublicOverride({ pageId, enabled: checked, token: result.value.publicShareToken });
   }
 
   function copyPublicLink() {

@@ -51,62 +51,58 @@ interface AwarenessState {
   user?: CollaborationUser;
 }
 
-/**
- * Owns the Y.Doc + HocuspocusProvider for one page's collaboration room. Constructed
- * synchronously on mount (not inside an effect) so both already exist by the time
- * `BlockEditor` builds its (frozen-at-mount) extension list — see block-editor.tsx.
- * Callers must remount this (e.g. `key={pageId}`) if the page being edited changes,
- * since `pageId`/`enabled` are only read once per mount, matching how `BlockEditor`
- * itself treats its extension-affecting props.
- */
+/** Owns the Y.Doc + HocuspocusProvider for one page's collaboration room. The external
+ * session is created and destroyed in an effect so React Strict Mode's setup/cleanup
+ * replay cannot leave state pointing at a provider it already destroyed. PageView does
+ * not mount the collaborative BlockEditor until `hasSyncedOnce`, so the provider is
+ * always available before the editor builds its frozen-at-mount extension list. */
 export function useCollaboration({ enabled, pageId, wsUrl, user, fetchToken }: UseCollaborationOptions): UseCollaborationResult {
-  const [ydoc] = React.useState<Y.Doc | null>(() => (enabled ? new Y.Doc() : null));
-  const [provider] = React.useState<HocuspocusProvider | null>(() =>
-    enabled && ydoc ? new HocuspocusProvider({ url: wsUrl, name: pageId, document: ydoc, token: fetchToken }) : null,
-  );
+  const [session, setSession] = React.useState<{ ydoc: Y.Doc; provider: HocuspocusProvider } | null>(null);
   const [status, setStatus] = React.useState<CollaborationStatus>(enabled ? "connecting" : "disabled");
   const [hasSyncedOnce, setHasSyncedOnce] = React.useState(false);
   const [connectedUsers, setConnectedUsers] = React.useState<CollaborationUser[]>([]);
 
   React.useEffect(() => {
-    if (!provider) return;
+    if (!enabled) return;
+    let active = true;
+    const ydoc = new Y.Doc();
+    const provider = new HocuspocusProvider({
+      url: wsUrl,
+      name: pageId,
+      document: ydoc,
+      token: fetchToken,
+      // Constructor callbacks are registered before the provider's automatic first
+      // connection, so a fast localhost handshake cannot outrun React's subscription.
+      onStatus: ({ status: next }) => {
+        if (active) setStatus(next === WebSocketStatus.Connected ? "connected" : "connecting");
+      },
+      onDisconnect: () => {
+        if (active) setStatus("disconnected");
+      },
+      onSynced: ({ state }) => {
+        if (active && state) setHasSyncedOnce(true);
+      },
+      onAwarenessUpdate: ({ states }: { states: AwarenessState[] }) => {
+        if (!active) return;
+        setConnectedUsers(
+          states
+            .map((state) => state.user)
+            .filter((candidate): candidate is CollaborationUser => !!candidate && candidate.name !== user.name),
+        );
+      },
+    });
     provider.setAwarenessField("user", user);
-
-    function handleStatus({ status: next }: { status: WebSocketStatus }) {
-      setStatus(next === WebSocketStatus.Connected ? "connected" : "connecting");
-    }
-    function handleDisconnect() {
-      setStatus("disconnected");
-    }
-    function handleSynced({ state }: { state: boolean }) {
-      if (state) setHasSyncedOnce(true);
-    }
-    function handleAwarenessUpdate({ states }: { states: AwarenessState[] }) {
-      setConnectedUsers(
-        states
-          .map((s) => s.user)
-          .filter((candidate): candidate is CollaborationUser => !!candidate && candidate.name !== user.name),
-      );
-    }
-
-    provider.on("status", handleStatus);
-    provider.on("disconnect", handleDisconnect);
-    provider.on("synced", handleSynced);
-    provider.on("awarenessUpdate", handleAwarenessUpdate);
+    setSession({ ydoc, provider });
 
     return () => {
-      provider.off("status", handleStatus);
-      provider.off("disconnect", handleDisconnect);
-      provider.off("synced", handleSynced);
-      provider.off("awarenessUpdate", handleAwarenessUpdate);
+      active = false;
       provider.destroy();
-      ydoc?.destroy();
+      ydoc.destroy();
     };
-    // Intentionally mount-only (see doc comment): `provider`/`ydoc` are already frozen
-    // by the lazy useState initializers above, and re-running this on every `user`
-    // change would tear down and reconnect the whole session just to update a name.
+    // Intentionally mount-only (see doc comment): changing one of these values requires
+    // a fresh room session, and PageView itself remounts when the page route changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider]);
+  }, []);
 
-  return { status, ydoc, provider, hasSyncedOnce, connectedUsers };
+  return { status, ydoc: session?.ydoc ?? null, provider: session?.provider ?? null, hasSyncedOnce, connectedUsers };
 }

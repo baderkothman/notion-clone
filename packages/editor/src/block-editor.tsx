@@ -53,12 +53,9 @@ export function BlockEditor({
         class: "prose-editor focus:outline-none",
       },
     },
+    onCreate: ({ editor }) => onEditorReady?.(editor),
     onUpdate: ({ editor }) => onUpdate?.(editor.getJSON()),
   });
-
-  React.useEffect(() => {
-    if (editor) onEditorReady?.(editor);
-  }, [editor, onEditorReady]);
 
   // The gutter (DragHandle) and margin badges (CommentIndicators) render as siblings of
   // EditorContent, but need to track pointer position relative to a container that

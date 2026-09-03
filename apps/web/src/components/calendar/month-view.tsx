@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { cn } from "@notion-clone/ui";
 import type { CalendarEvent } from "@/server/calendar/queries";
@@ -27,7 +27,7 @@ export function MonthView({
 }) {
   const days = getMonthGridDays(anchor);
   const today = new Date();
-  const [draggingEventId, setDraggingEventId] = useState<string | null>(null);
+  const draggingEventIdRef = useRef<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
   function eventsForDay(day: Date): CalendarEvent[] {
@@ -40,7 +40,7 @@ export function MonthView({
     <div className="flex h-full flex-col">
       <div className="grid grid-cols-7 border-b border-border text-xs font-medium text-text-faint">
         {WEEKDAY_LABELS.map((label) => (
-          <div key={label} className="px-2 py-2 text-center">
+          <div key={label} className="p-2 text-center">
             {label}
           </div>
         ))}
@@ -54,14 +54,14 @@ export function MonthView({
 
           return (
             <div
-              key={i}
+              key={day.getTime()}
               className={cn(
                 "group relative flex min-h-24 flex-col border-b border-r border-border p-1",
                 !isCurrentMonth && "bg-sidebar/50",
                 dragOverDay === i && "bg-selected",
               )}
               onDragOver={(e) => {
-                if (!draggingEventId) return;
+                if (!draggingEventIdRef.current) return;
                 e.preventDefault();
                 setDragOverDay(i);
               }}
@@ -69,8 +69,8 @@ export function MonthView({
               onDrop={(e) => {
                 e.preventDefault();
                 setDragOverDay(null);
-                const event = events.find((ev) => ev.id === draggingEventId);
-                setDraggingEventId(null);
+                const event = events.find((ev) => ev.id === draggingEventIdRef.current);
+                draggingEventIdRef.current = null;
                 if (event) onRescheduleEvent(event, day);
               }}
             >
@@ -86,8 +86,8 @@ export function MonthView({
                 <button
                   type="button"
                   onClick={() => onCreateAt(day)}
-                  aria-label={`New event on ${day.toLocaleDateString()}`}
-                  className="flex size-5 items-center justify-center rounded opacity-0 hover:bg-hover group-hover:opacity-100 group-focus-within:opacity-100"
+                  aria-label={`New event on ${day.getFullYear()}-${day.getMonth() + 1}-${day.getDate()}`}
+                  className="flex size-5 items-center justify-center rounded opacity-0 hover:bg-hover group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                 >
                   <Plus className="size-3 text-text-faint" />
                 </button>
@@ -99,7 +99,9 @@ export function MonthView({
                     event={event}
                     compact
                     draggable
-                    onDragStart={() => setDraggingEventId(event.id)}
+                    onDragStart={() => {
+                      draggingEventIdRef.current = event.id;
+                    }}
                     onClick={() => onSelectEvent(event)}
                   />
                 ))}

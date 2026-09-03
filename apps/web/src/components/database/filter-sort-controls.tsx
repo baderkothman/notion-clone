@@ -30,48 +30,21 @@ export function FilterControl({
   filters: FilterCondition[];
   onChange: (filters: FilterCondition[]) => void;
 }) {
-  // A row's identity for React's `key` — kept in lockstep with `filters` by every
-  // mutation below (add/remove change both arrays at the same index; edits touch
-  // neither). `filters` itself carries no stable id (it's persisted view config, not
-  // worth widening just for this), and index-as-key would misattribute a mid-list row's
-  // focus/DOM state to the wrong condition after removing an earlier one.
-  //
-  // The plain null-guarded lazy-init pattern (fill once, on first render) — the
-  // database-view.tsx call site remounts this component (`key={activeViewId}`-based)
-  // whenever `filters` would otherwise be replaced wholesale from outside (switching
-  // views), so this never needs to reconcile a foreign array; add/remove below are the
-  // only things that ever change its length, and they keep `keysRef` in lockstep
-  // directly. Assigning the ref's initial value via a conditional inside the component
-  // body — rather than passing it straight to `useRef(filters.map(...))` — matters
-  // because a `useRef` argument is evaluated on *every* render even though only the
-  // first result is kept.
-  // react-doctor's `no-ref-current-in-render` still flags this even though it matches
-  // the exact "null-guarded lazy initialization" pattern its own rule doc says is
-  // supported (checked https://www.react.doctor/prompts/rules/react-doctor/no-ref-current-in-render.md
-  // and tried both the `if (ref.current === null)` and `??=` forms — both flagged).
-  // Treated as a confirmed tool false positive rather than moved into an effect, which
-  // would add a real one-render lag to satisfy a static heuristic stricter than its own
-  // documented exception.
-  const keysRef = React.useRef<string[] | null>(null);
-  if (keysRef.current === null) {
-    keysRef.current = filters.map(() => crypto.randomUUID());
-  }
-  // Established above on every render before any of the closures below can run — safe
-  // to treat as always-set from here on (TypeScript can't narrow a ref's type across
-  // separate function bodies, hence the assertion rather than a real null check).
-  const keys = keysRef.current!;
+  // The parent remounts this control when the active view changes. Within one view,
+  // every add/remove updates these stable row keys alongside the persisted filters.
+  const [keys, setKeys] = React.useState(() => filters.map(() => crypto.randomUUID()));
 
   function updateFilter(index: number, patch: Partial<FilterCondition>) {
     onChange(filters.map((f, i) => (i === index ? { ...f, ...patch } : f)));
   }
   function removeFilter(index: number) {
-    keysRef.current = keys.filter((_, i) => i !== index);
+    setKeys((current) => current.filter((_, i) => i !== index));
     onChange(filters.filter((_, i) => i !== index));
   }
   function addFilter() {
     const first = properties[0];
     if (!first) return;
-    keysRef.current = [...keys, crypto.randomUUID()];
+    setKeys((current) => [...current, crypto.randomUUID()]);
     onChange([...filters, { propertyId: first.id, operator: "equals", value: "" }]);
   }
 
@@ -161,25 +134,19 @@ export function SortControl({
   sorts: SortCondition[];
   onChange: (sorts: SortCondition[]) => void;
 }) {
-  // See FilterControl's `keysRef` comment above — same reasoning, same lockstep
-  // discipline, same confirmed react-doctor false positive.
-  const keysRef = React.useRef<string[] | null>(null);
-  if (keysRef.current === null) {
-    keysRef.current = sorts.map(() => crypto.randomUUID());
-  }
-  const keys = keysRef.current!;
+  const [keys, setKeys] = React.useState(() => sorts.map(() => crypto.randomUUID()));
 
   function updateSort(index: number, patch: Partial<SortCondition>) {
     onChange(sorts.map((s, i) => (i === index ? { ...s, ...patch } : s)));
   }
   function removeSort(index: number) {
-    keysRef.current = keys.filter((_, i) => i !== index);
+    setKeys((current) => current.filter((_, i) => i !== index));
     onChange(sorts.filter((_, i) => i !== index));
   }
   function addSort() {
     const first = properties[0];
     if (!first) return;
-    keysRef.current = [...keys, crypto.randomUUID()];
+    setKeys((current) => [...current, crypto.randomUUID()]);
     onChange([...sorts, { propertyId: first.id, direction: "asc" }]);
   }
 

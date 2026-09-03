@@ -4,19 +4,7 @@ import { CalendarPlus, Link2, MapPin } from "lucide-react";
 import { cn, EmptyState } from "@notion-clone/ui";
 import type { CalendarEvent } from "@/server/calendar/queries";
 import { isSameDay } from "./calendar-date-utils";
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
-
-function formatDayHeading(date: Date): string {
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  if (isSameDay(date, today)) return "Today";
-  if (isSameDay(date, tomorrow)) return "Tomorrow";
-  return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-}
+import { LocalDateText } from "@/components/local-date-text";
 
 /** The rolling "what's coming up" view — also doubles as the friendliest empty state
  * of the four views (see EmptyState below), since a blank month grid reads as "broken"
@@ -64,7 +52,9 @@ export function AgendaView({
     <div className="mx-auto max-w-2xl space-y-6 overflow-y-auto p-4">
       {groups.map((group) => (
         <div key={group.day.toISOString()}>
-          <p className="mb-1.5 text-xs font-medium text-text-faint">{formatDayHeading(group.day)}</p>
+          <p className="mb-1.5 text-xs font-medium text-text-faint">
+            <LocalDateText value={group.day} format="agendaDay" />
+          </p>
           <div className="space-y-1">
             {group.items.map((event) => (
               <button
@@ -77,7 +67,7 @@ export function AgendaView({
                 )}
               >
                 <span className="w-16 shrink-0 text-xs text-text-faint">
-                  {event.allDay ? "All day" : formatTime(event.startAt)}
+                  {event.allDay ? "All day" : <LocalDateText value={event.startAt} format="time" />}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm text-text">{event.title}</span>
                 {event.location ? (

@@ -29,19 +29,22 @@ interface PropertyCellProps {
   variant?: "table" | "board";
 }
 
+const SCALAR_PROPERTY_TYPES = new Set<DatabaseProperty["type"]>(["text", "number", "url", "checkbox", "date"]);
+
 /** Dispatches to a type-specific renderer/editor. One component for every property
  * type keeps the "how do I show and edit a `select`" decision in one place instead of
  * scattered across table/board/list views. */
 export function PropertyCell({
   property,
-  value,
-  onChange,
-  onCreateOption,
-  members,
-  workspaceId,
-  rowPageId,
-  variant = "table",
+  ...props
 }: PropertyCellProps) {
+  if (SCALAR_PROPERTY_TYPES.has(property.type)) {
+    return <ScalarPropertyCell property={property} {...props} />;
+  }
+  return <ConfiguredPropertyCell property={property} {...props} />;
+}
+
+function ScalarPropertyCell({ property, value, onChange }: PropertyCellProps) {
   switch (property.type) {
     case "text":
       return <TextCell value={typeof value === "string" ? value : ""} onChange={onChange} label={property.name} />;
@@ -53,6 +56,22 @@ export function PropertyCell({
       return <CheckboxCell value={value === true} onChange={onChange} label={property.name} />;
     case "date":
       return <DateCell value={typeof value === "string" ? value : ""} onChange={onChange} label={property.name} />;
+    default:
+      return null;
+  }
+}
+
+function ConfiguredPropertyCell({
+  property,
+  value,
+  onChange,
+  onCreateOption,
+  members,
+  workspaceId,
+  rowPageId,
+  variant = "table",
+}: PropertyCellProps) {
+  switch (property.type) {
     case "select":
     case "status":
       return (

@@ -50,6 +50,119 @@ function roundToNextHalfHour(date: Date): Date {
   return d;
 }
 
+function EventDateFields({
+  allDay,
+  startDate,
+  startTime,
+  endDate,
+  endTime,
+  onStartDateChange,
+  onStartTimeChange,
+  onEndDateChange,
+  onEndTimeChange,
+}: {
+  allDay: boolean;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  onStartDateChange: (value: string) => void;
+  onStartTimeChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  onEndTimeChange: (value: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="event-start-date">Starts</Label>
+        <div className="flex gap-1.5">
+          <Input
+            id="event-start-date"
+            type="date"
+            value={startDate}
+            onChange={(e) => onStartDateChange(e.target.value)}
+            required
+          />
+          {!allDay ? (
+            <Input
+              type="time"
+              aria-label="Start time"
+              value={startTime}
+              onChange={(e) => onStartTimeChange(e.target.value)}
+              required
+              className="w-28"
+            />
+          ) : null}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="event-end-date">Ends</Label>
+        <div className="flex gap-1.5">
+          <Input
+            id="event-end-date"
+            type="date"
+            value={endDate}
+            onChange={(e) => onEndDateChange(e.target.value)}
+            required
+          />
+          {!allDay ? (
+            <Input
+              type="time"
+              aria-label="End time"
+              value={endTime}
+              onChange={(e) => onEndTimeChange(e.target.value)}
+              required
+              className="w-28"
+            />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventDialogFooter({
+  isEditing,
+  deleting,
+  pending,
+  onDelete,
+  onCancel,
+}: {
+  isEditing: boolean;
+  deleting: boolean;
+  pending: boolean;
+  onDelete: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between pt-1">
+      {isEditing ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={deleting}
+          aria-label="Delete event"
+          className="text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="size-3.5" />
+        </Button>
+      ) : (
+        <span />
+      )}
+      <div className="flex gap-2">
+        <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" size="sm" disabled={pending}>
+          {pending ? "Saving…" : isEditing ? "Save changes" : "Create event"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function EventDialog({
   open,
   onOpenChange,
@@ -81,15 +194,15 @@ export function EventDialog({
   const [description, setDescription] = useState(event?.description ?? "");
   const [location, setLocation] = useState(event?.location ?? "");
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
-  const [startDate, setStartDate] = useState(toDateInput(start));
-  const [startTime, setStartTime] = useState(toTimeInput(start));
-  const [endDate, setEndDate] = useState(toDateInput(defaultEnd));
-  const [endTime, setEndTime] = useState(toTimeInput(defaultEnd));
+  const [startDate, setStartDate] = useState(() => toDateInput(start));
+  const [startTime, setStartTime] = useState(() => toTimeInput(start));
+  const [endDate, setEndDate] = useState(() => toDateInput(defaultEnd));
+  const [endTime, setEndTime] = useState(() => toTimeInput(defaultEnd));
   const [recurrence, setRecurrence] = useState<RecurrenceFrequency>(() => {
     const f = rruleToFrequency(event?.recurrenceRule);
     return f === "custom" ? "none" : f;
   });
-  const [attendeesText, setAttendeesText] = useState((event?.attendees ?? []).map((a) => a.email).join(", "));
+  const [attendeesText, setAttendeesText] = useState(() => (event?.attendees ?? []).map((a) => a.email).join(", "));
   const [syncToGoogle, setSyncToGoogle] = useState(
     isEditing ? Boolean(event?.googleConnectionId) : Boolean(googleConnectionId),
   );
@@ -178,52 +291,17 @@ export function EventDialog({
             All day
           </label>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="event-start-date">Starts</Label>
-              <div className="flex gap-1.5">
-                <Input
-                  id="event-start-date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                />
-                {!allDay ? (
-                  <Input
-                    type="time"
-                    aria-label="Start time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    required
-                    className="w-28"
-                  />
-                ) : null}
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="event-end-date">Ends</Label>
-              <div className="flex gap-1.5">
-                <Input
-                  id="event-end-date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
-                />
-                {!allDay ? (
-                  <Input
-                    type="time"
-                    aria-label="End time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    required
-                    className="w-28"
-                  />
-                ) : null}
-              </div>
-            </div>
-          </div>
+          <EventDateFields
+            allDay={allDay}
+            startDate={startDate}
+            startTime={startTime}
+            endDate={endDate}
+            endTime={endTime}
+            onStartDateChange={setStartDate}
+            onStartTimeChange={setStartTime}
+            onEndDateChange={setEndDate}
+            onEndTimeChange={setEndTime}
+          />
 
           <div className="space-y-1.5">
             <Label htmlFor="event-location">Location</Label>
@@ -237,7 +315,7 @@ export function EventDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-base text-text placeholder:text-text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:text-sm"
             />
           </div>
 
@@ -248,7 +326,7 @@ export function EventDialog({
                 id="event-recurrence"
                 value={recurrence}
                 onChange={(e) => setRecurrence(e.target.value as RecurrenceFrequency)}
-                className="h-9 w-full rounded-md border border-border bg-surface px-3 text-sm text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                className="h-9 w-full rounded-md border border-border bg-surface px-3 text-base text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus sm:text-sm"
               >
                 <option value="none">Doesn&apos;t repeat</option>
                 <option value="daily">Daily</option>
@@ -285,31 +363,13 @@ export function EventDialog({
             </p>
           ) : null}
 
-          <div className="flex items-center justify-between pt-1">
-            {isEditing ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleDelete}
-                disabled={deleting}
-                aria-label="Delete event"
-                className="text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            ) : (
-              <span />
-            )}
-            <div className="flex gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" size="sm" disabled={pending}>
-                {pending ? "Saving…" : isEditing ? "Save changes" : "Create event"}
-              </Button>
-            </div>
-          </div>
+          <EventDialogFooter
+            isEditing={isEditing}
+            deleting={deleting}
+            pending={pending}
+            onDelete={handleDelete}
+            onCancel={() => onOpenChange(false)}
+          />
         </form>
       </DialogContent>
     </Dialog>

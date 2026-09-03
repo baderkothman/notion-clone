@@ -14,16 +14,13 @@ import {
   createChannelAction,
 } from "@/app/(app)/actions/chat";
 import { MentionComposer, type MemberOption } from "@/components/page/mention-composer";
+import { LocalDateText } from "@/components/local-date-text";
 
 /** Live delivery is short-interval polling, not a push channel — see
  * docs/ARCHITECTURE.md's "Chat" section for why (no queue/worker infra exists in this
  * app yet, same reasoning as the Google Calendar sync section's "no webhook" cut).
  * 3 seconds reads as "basically live" without hammering the server. */
 const POLL_INTERVAL_MS = 3000;
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
 
 export function ChatShell({
   workspaceId,
@@ -49,7 +46,10 @@ export function ChatShell({
   const [editBody, setEditBody] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const activeChannel = channels.find((c) => c.id === activeChannelId) ?? channels[0]!;
 
@@ -131,17 +131,23 @@ export function ChatShell({
           </button>
         </div>
         {creatingChannel ? (
-          <form onSubmit={handleCreateChannel} className="mb-2 flex items-center gap-1">
-            <input
-              value={newChannelName}
-              onChange={(e) => setNewChannelName(e.target.value)}
-              placeholder="channel-name"
-              autoFocus
-              className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            />
-            <button type="button" onClick={() => setCreatingChannel(false)} aria-label="Cancel" className="text-text-faint hover:text-text">
-              <X className="size-3.5" />
-            </button>
+          <form onSubmit={handleCreateChannel} className="mb-2">
+            <label htmlFor="new-channel-name" className="mb-1 block text-xs font-medium text-text-muted">
+              Channel name
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                id="new-channel-name"
+                value={newChannelName}
+                onChange={(e) => setNewChannelName(e.target.value)}
+                placeholder="e.g. project-alpha"
+                autoFocus
+                className="h-7 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-focus sm:text-xs"
+              />
+              <button type="button" onClick={() => setCreatingChannel(false)} aria-label="Cancel" className="text-text-faint hover:text-text">
+                <X className="size-3.5" />
+              </button>
+            </div>
           </form>
         ) : null}
         <div className="space-y-0.5">
@@ -169,7 +175,7 @@ export function ChatShell({
 
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {messages.length === 0 ? (
-            <p className="py-16 text-center text-sm text-text-faint">No messages yet — say something.</p>
+            <p className="py-16 text-center text-sm text-text-faint">No messages yet. Say something.</p>
           ) : (
             <div className="space-y-3">
               {messages.map((message) => {
@@ -180,7 +186,9 @@ export function ChatShell({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-1.5">
                         <span className="text-sm font-medium text-text">{message.authorName ?? message.authorEmail}</span>
-                        <span className="text-xs text-text-faint">{formatTime(message.createdAt)}</span>
+                        <span className="text-xs text-text-faint">
+                          <LocalDateText value={message.createdAt} format="time" />
+                        </span>
                         {message.editedAt ? <span className="text-xs text-text-faint">(edited)</span> : null}
                       </div>
                       {editingId === message.id ? (
@@ -195,7 +203,8 @@ export function ChatShell({
                             value={editBody}
                             onChange={(e) => setEditBody(e.target.value)}
                             autoFocus
-                            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                            aria-label="Edit message"
+                            className="h-8 min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-focus sm:text-sm"
                           />
                           <Button type="submit" size="sm">
                             Save
