@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
-import { cn } from "@notion-clone/ui";
+import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@notion-clone/ui";
 
 type ThemePreference = "light" | "dark" | "system";
 
@@ -36,22 +36,33 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="inline-flex rounded-md border border-border p-0.5" role="radiogroup" aria-label="Theme">
+    // Icon-only: this lives in the sidebar footer (sidebar-footer.tsx) alongside the
+    // user menu button in a fixed-width column, and the previous icon+label design
+    // ("Light"/"Dark"/"System" spelled out) was wide enough to overflow that row on
+    // its own — squeezing the user menu button down to just its avatar, or clipping
+    // itself, depending on content length. A tooltip carries the label visually
+    // instead; `aria-label` (not the tooltip, which isn't reliably exposed to every
+    // assistive technology) is what keeps each button's accessible name intact.
+    <div className="inline-flex shrink-0 gap-0.5 rounded-md border border-border p-0.5" role="radiogroup" aria-label="Theme">
       {OPTIONS.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={pref === option.value}
-          onClick={() => select(option.value)}
-          className={cn(
-            "flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs font-medium transition-colors",
-            pref === option.value ? "bg-hover text-text" : "text-text-muted hover:text-text",
-          )}
-        >
-          {option.icon}
-          {option.label}
-        </button>
+        <Tooltip key={option.value}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={pref === option.value}
+              aria-label={option.label}
+              onClick={() => select(option.value)}
+              className={cn(
+                "flex size-6 items-center justify-center rounded-[5px] transition-colors",
+                pref === option.value ? "bg-hover text-text" : "text-text-muted hover:text-text",
+              )}
+            >
+              {option.icon}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">{option.label}</TooltipContent>
+        </Tooltip>
       ))}
     </div>
   );

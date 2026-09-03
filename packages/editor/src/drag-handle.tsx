@@ -31,6 +31,19 @@ export function DragHandle({
 }) {
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
   const [rect, setRect] = React.useState<{ top: number; left: number; height: number } | null>(null);
+  const gutterRef = React.useRef<HTMLDivElement | null>(null);
+  // Measured, not hardcoded: the row is 2 buttons (Insert, Drag) or 3 (+ Comment, when
+  // `onCommentBlock` is wired up) — a fixed offset sized for one case overlaps the
+  // block's own text in the other. Starts at the widest (3-button) case so there's
+  // never a frame where an unmeasured gutter overlaps content; `useLayoutEffect` then
+  // corrects it before paint whenever the hovered block (and therefore this row)
+  // (re)mounts.
+  const [gutterWidth, setGutterWidth] = React.useState(76);
+  const GUTTER_GAP = 8; // breathing room between the gutter and the block's left edge
+
+  React.useLayoutEffect(() => {
+    if (gutterRef.current) setGutterWidth(gutterRef.current.offsetWidth);
+  }, [hoveredId, onCommentBlock]);
 
   React.useEffect(() => {
     const parent = container.current;
@@ -132,9 +145,10 @@ export function DragHandle({
 
   return (
     <div
+      ref={gutterRef}
       contentEditable={false}
       className="pointer-events-none absolute z-10 flex items-center gap-0.5"
-      style={{ top: rect.top, left: -44, height: rect.height }}
+      style={{ top: rect.top, left: -(gutterWidth + GUTTER_GAP), height: rect.height }}
     >
       <button
         onClick={handleAdd}

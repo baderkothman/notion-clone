@@ -41,7 +41,17 @@ export const dynamic = "force-dynamic";
  * user's stored preference (see components/theme-toggle.tsx) or falls back to the OS
  * setting. Inlined (not an external file) so it runs before first paint; the nonce
  * (issued per-request in src/middleware.ts) lets it run under a strict CSP with no
- * 'unsafe-inline'. */
+ * 'unsafe-inline'.
+ *
+ * The `<script>` element below carries its own `suppressHydrationWarning`, not just
+ * `<html>`'s (that one doesn't cascade to descendants — it only covers `<html>`'s own
+ * mismatch, the `.dark` class toggle). Browsers deliberately hide a `nonce` attribute
+ * from JS attribute reads once it's applied (`getAttribute("nonce")` always returns
+ * `""` afterward, by design — see the HTML spec's "nonce attribute" section), so
+ * React's hydration diff always sees server `nonce="<real value>"` vs. client
+ * `nonce=""` here, on every single request, regardless of anything actually being
+ * wrong. It's not fixable by changing what value is passed in — only by telling React
+ * this specific, unavoidable mismatch is expected. */
 const themeInitScript = `
 (function () {
   try {
@@ -58,7 +68,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${jetBrainsMono.variable}`} suppressHydrationWarning>
       <head>
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
         <TooltipProvider delayDuration={400}>{children}</TooltipProvider>
